@@ -23,7 +23,7 @@ Its case is accurately designed within Blender3D to ensure that all the componen
 <br /><br />
 - [SH1106 OLED 128x64 Display] 1.3" oled monocromatic display with I2C communication interface<br /><br />
 <img src="https://github.com/sabricham/project-time-manager/assets/149872304/cf0251d3-efd8-4f6c-b578-5f997ed63d08" width="200" height="200">
-<img src="https://github.com/sabricham/project-time-manager/assets/149872304/58d22686-11ab-43f2-bc7c-77737b9a6d73" width="200" height="200">
+<img src="https://github.com/sabricham/project-time-manager/assets/149872304/2e6da7e5-f13a-49d8-bd86-58c78cf30cae" width="300" height="200">
 <br /><br />
 
 ## Diagrams
