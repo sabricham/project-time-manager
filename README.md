@@ -28,6 +28,6 @@ Its case is accurately designed within Blender3D to ensure that all the componen
 
 ## Diagrams
 - System schematic<br /><br />
-![image](https://github.com/sabricham/project-time-manager/assets/149872304/cb2df2a5-890c-4913-b02d-a43e02fb8b8b)
+<img src="https://github.com/sabricham/project-time-manager/assets/149872304/cb2df2a5-890c-4913-b02d-a43e02fb8b8b" width="450" height="300">
 <br /><br />
 - Circuit diagram
