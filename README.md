@@ -13,9 +13,11 @@ Its case is accurately designed within Blender3D to ensure that all the componen
 3D printing is used to create a functional proof-of-concept and prototype, other methods to build a stronger and more precise case will be used later.
 
 ## Components
-- [ESP32-C3 Super Mini] very compact board integrating an ESP32-C3 chip, a 32-bit RISC-V single-core processor with Bluetooth & WIFI capabilities  
-<img src="https://github.com/sabricham/project-time-manager/assets/149872304/33c9975b-c196-4d75-909e-e24988ed2d0a" width="200" height="200">
-<img src="https://github.com/sabricham/project-time-manager/assets/149872304/9cd5d7f8-e787-46f9-bbe2-b9a7701bd563" width="400" height="200">  
+- [ESP32-C3 Super Mini] very compact board integrating an ESP32-C3 chip, a 32-bit RISC-V single-core processor with Bluetooth & WIFI capabilities
+<p>
+  <img src="https://github.com/sabricham/project-time-manager/assets/149872304/33c9975b-c196-4d75-909e-e24988ed2d0a" width="200" height="200">
+  <img src="https://github.com/sabricham/project-time-manager/assets/149872304/9cd5d7f8-e787-46f9-bbe2-b9a7701bd563" width="400" height="200">
+</p>
 - [Rotary Encoder MC11] digital incremental encoder with no angular limitation and an integrated pressure switch<br /><br />
 <img src="https://github.com/sabricham/project-time-manager/assets/149872304/79502f33-718c-4055-8239-babceb66607e" width="200" height="200">
 <img src="https://github.com/sabricham/project-time-manager/assets/149872304/7225a2c7-1111-49ce-b1c6-4f3c0d4a3497" width="300" height="200">
