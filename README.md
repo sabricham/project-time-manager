@@ -1,5 +1,8 @@
 ## Time Manager
-Here you can find all the documentation and the code used in the development starting from a first prototype version to a fully functional device with timer, stopwatch, pomodoro session features and more!
+Here you can find all the documentation and the code used in the development of this project, starting from a first prototype version to a fully functional device that has timer, stopwatch, pomodoro session features and more!
+
+<img src="https://github.com/sabricham/project-time-manager/assets/149872304/6d174617-359d-4b77-bf12-fa2cc83fcee7" width="270" height="350">
+
 
 ## Table of contents
 - [Introduction](#introduction)
