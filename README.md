@@ -1,6 +1,5 @@
 ## Time Manager
-Time Manager device with timer, stopwatch, pomodoro session features and more!
-Here you can find all the documentation and the code used in the project starting from a first prototype version to a fully functional product
+Here you can find all the documentation and the code used in the development starting from a first prototype version to a fully functional device with timer, stopwatch, pomodoro session features and more!
 
 ## Table of contents
 - [Introduction](#introduction)
