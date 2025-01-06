@@ -13,8 +13,7 @@
 #include "ky040.h"
 
 /* Private variables & defines */
-#define TAG "KY040"
-
+#define TAG "KY040-Encoder"
 gptimer_handle_t debounce_timer = NULL;
 
 #define EXAMPLE_EC11_GPIO_A 0

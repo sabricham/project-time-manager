@@ -19,6 +19,7 @@
 #define TAG "Manager"
 extern QueueHandle_t display_queue;
 extern QueueHandle_t encoder_queue;
+extern QueueHandle_t led_queue;
 QueueHandle_t manager_queue = NULL;
 queue_message manager_queue_message;
 
@@ -66,7 +67,80 @@ uint8_t manager_idle()
     queue_message tx_mess; 
     queue_message rx_mess; 
     int image_add_offset = 0;
+/*
+    // Clear led strip
+    memset(&tx_mess, 0, sizeof(queue_message)); 
+    tx_mess.sender_id = SENDER_ID_MANAGER;
+    tx_mess.device_id = DEVICE_ID_LED;
+    tx_mess.message_id = MESSAGE_ID_LED_CLEAR_LED;
+    tx_mess.data[0] = 10;        //delay ms
+    while(led_queue == NULL)
+        vTaskDelay(pdMS_TO_TICKS(100));
+    xQueueSend(led_queue, &tx_mess, 10);
+    
+    vTaskDelay(pdMS_TO_TICKS(1500));
+    */
+    
+    // Select rainbow effect on led strip
+    memset(&tx_mess, 0, sizeof(queue_message)); 
+    tx_mess.sender_id = SENDER_ID_MANAGER;
+    tx_mess.device_id = DEVICE_ID_LED;
+    tx_mess.message_id = MESSAGE_ID_LED_SET_EFFECT_RAINBOW;
+    tx_mess.data[0] = 10;         //delay ms
+    while(led_queue == NULL)
+        vTaskDelay(pdMS_TO_TICKS(100));
+    xQueueSend(led_queue, &tx_mess, 10);
 
+    vTaskDelay(pdMS_TO_TICKS(3000));
+    
+    /*
+    // Select breath effect on led strip
+    memset(&tx_mess, 0, sizeof(queue_message)); 
+    tx_mess.sender_id = SENDER_ID_MANAGER;
+    tx_mess.device_id = DEVICE_ID_LED;
+    tx_mess.message_id = MESSAGE_ID_LED_SET_EFFECT_BREATH;
+    tx_mess.data[0] = 10;         //delay ms
+    tx_mess.data[1] = 255;        //red
+    tx_mess.data[2] = 0;          //green
+    tx_mess.data[3] = 255;        //blue
+    while(led_queue == NULL)
+        vTaskDelay(pdMS_TO_TICKS(100));
+    xQueueSend(led_queue, &tx_mess, 10);
+
+    vTaskDelay(pdMS_TO_TICKS(3000));
+    
+    // Select solid effect on led strip
+    memset(&tx_mess, 0, sizeof(queue_message)); 
+    tx_mess.sender_id = SENDER_ID_MANAGER;
+    tx_mess.device_id = DEVICE_ID_LED;
+    tx_mess.message_id = MESSAGE_ID_LED_SET_EFFECT_SOLID;
+    tx_mess.data[0] = 10;         //delay ms
+    tx_mess.data[1] = 255;        //red
+    tx_mess.data[2] = 255;        //green
+    tx_mess.data[3] = 255;        //blue
+    while(led_queue == NULL)
+        vTaskDelay(pdMS_TO_TICKS(100));
+    xQueueSend(led_queue, &tx_mess, 10);
+    
+    vTaskDelay(pdMS_TO_TICKS(3000));
+    
+    // Select loading effect on led strip
+    memset(&tx_mess, 0, sizeof(queue_message)); 
+    tx_mess.sender_id = SENDER_ID_MANAGER;
+    tx_mess.device_id = DEVICE_ID_LED;
+    tx_mess.message_id = MESSAGE_ID_LED_SET_EFFECT_LOADING;
+    tx_mess.data[0] = 10;          //delay ms
+    tx_mess.data[1] = 0;           //red
+    tx_mess.data[2] = 0;           //green
+    tx_mess.data[3] = 255;         //blue
+    while(led_queue == NULL)
+        vTaskDelay(pdMS_TO_TICKS(100));
+    xQueueSend(led_queue, &tx_mess, 10);
+    
+    vTaskDelay(pdMS_TO_TICKS(3000));
+    */
+
+/*
     if(xQueueReceive(manager_queue, &rx_mess, 0))
     {
         if(rx_mess.sender_id == SENDER_ID_ENCODER)
@@ -95,6 +169,7 @@ uint8_t manager_idle()
             }
         }
     } 
+    */
 
     return manager_state_idle;
 }

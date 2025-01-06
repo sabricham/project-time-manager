@@ -7,6 +7,10 @@
     ],
     "C_Cpp.errorSquiggles": "disabled",
     "files.associations": {
-        "encoder.h": "c"
-    }
+        "encoder.h": "c",
+        "gptimer.h": "c",
+        "cstdint": "c"
+    },
+    "idf.espIdfPathWin": "c:\\Espressif\\frameworks\\esp-idf-v5.2.1",
+    "idf.toolsPathWin": "c:\\Espressif\\tools"
 }
