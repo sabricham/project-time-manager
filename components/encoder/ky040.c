@@ -17,59 +17,64 @@
 
 gptimer_handle_t debounce_timer = NULL;
 
-#define EXAMPLE_EC11_GPIO_A 0
-#define EXAMPLE_EC11_GPIO_B 1
-
 bool debounce_timer_activated = false;
 
 /* Private functions & routines */
 void ky040_add_angle_variation(KY040_t * encoder)
 {
-    encoder->_angle_variation += encoder->_angle_increment;
+    encoder->angular_position += encoder->angle_increment;
     return;
 }
 
 void ky040_sub_angle_variation(KY040_t * encoder)
 {
-    encoder->_angle_variation -= encoder->_angle_increment;
+    encoder->angular_position -= encoder->angle_increment;
     return;
 }
 
 void ky040_check_angle_variation(KY040_t * encoder, uint8_t pin_trigger)
 {
-    int level_a = gpio_get_level(encoder->_pin_a);
-    int level_b = gpio_get_level(encoder->_pin_b);
+    int level_a = gpio_get_level(encoder->pin_a);
+    int level_b = gpio_get_level(encoder->pin_b);
 
-    if(pin_trigger == encoder->_pin_a)
+    if(pin_trigger == encoder->pin_a)
     {
         if (level_a) {
             //Rising
-            if(level_b)
+            if(level_b){                
                 ky040_add_angle_variation(encoder);
-            else
-                ky040_sub_angle_variation(encoder);         
+            }
+            else{
+                //ky040_sub_angle_variation(encoder); 
+            }        
         } else {
             //Falling
-            if(level_b)
-                ky040_sub_angle_variation(encoder);
-            else
-                ky040_add_angle_variation(encoder);
+            if(level_b){
+                //ky040_sub_angle_variation(encoder);
+            }
+            else{
+                //ky040_add_angle_variation(encoder);
+            }
         }
     }    
-    else if(pin_trigger == encoder->_pin_b)
+    else if(pin_trigger == encoder->pin_b)
     {
         if (level_b) {
             //Rising
-            if(!level_a)
-                ky040_add_angle_variation(encoder);
-            else
+            if(!level_a){
+                //ky040_add_angle_variation(encoder); 
+            }     
+            else{
                 ky040_sub_angle_variation(encoder);
+            }
         } else {
             //Falling
-            if(!level_a)
-                ky040_sub_angle_variation(encoder);
-            else
-                ky040_add_angle_variation(encoder);
+            if(!level_a){
+                //ky040_sub_angle_variation(encoder);
+            }
+            else{
+                //ky040_add_angle_variation(encoder);                
+            }
         }
     } 
 }
@@ -81,12 +86,11 @@ void ky040_check_angle_variation(KY040_t * encoder, uint8_t pin_trigger)
 static void IRAM_ATTR ky040_a_trigger_isr(void* arg) 
 {
     KY040_t * encoder = (KY040_t *)arg;
-    uint64_t count;
     if(!debounce_timer_activated)
-    {
+    {  
         debounce_timer_activated = true;    
-        ky040_check_angle_variation(encoder, encoder->_pin_a);
-        ESP_ERROR_CHECK(gptimer_start(debounce_timer));   
+        ky040_check_angle_variation(encoder, encoder->pin_a);
+        ESP_ERROR_CHECK(gptimer_start(debounce_timer)); 
     }
     return;
 }
@@ -98,11 +102,10 @@ static void IRAM_ATTR ky040_a_trigger_isr(void* arg)
 static void IRAM_ATTR ky040_b_trigger_isr(void* arg) 
 {
     KY040_t * encoder = (KY040_t *)arg;
-    uint64_t count;
     if(!debounce_timer_activated)
     {
         debounce_timer_activated = true;    
-        ky040_check_angle_variation(encoder, encoder->_pin_b);    
+        ky040_check_angle_variation(encoder, encoder->pin_b);    
         ESP_ERROR_CHECK(gptimer_start(debounce_timer));
     }
     return;
@@ -145,7 +148,7 @@ void ky040_init(KY040_t * encoder, uint8_t pin_a, uint8_t pin_b, uint8_t angle_i
     ESP_ERROR_CHECK(gptimer_new_timer(&timer_config, &debounce_timer));
     gptimer_alarm_config_t timer_alarm_config = {
         .flags.auto_reload_on_alarm = 0,
-        .alarm_count = 1000
+        .alarm_count = 500
     };
     ESP_ERROR_CHECK(gptimer_set_alarm_action(debounce_timer, &timer_alarm_config));
     ESP_ERROR_CHECK(gptimer_set_raw_count(debounce_timer, 0ULL));
@@ -156,20 +159,30 @@ void ky040_init(KY040_t * encoder, uint8_t pin_a, uint8_t pin_b, uint8_t angle_i
     ESP_ERROR_CHECK(gptimer_enable(debounce_timer));
     ESP_LOGI(TAG, "Debounce timer setup completed successfully");
 
-    encoder->_pin_a = pin_a;
-    encoder->_pin_b = pin_b;
+    encoder->pin_a = pin_a;
+    encoder->pin_b = pin_b;
 
-    encoder->_angle_increment = angle_increment;
+    encoder->angle_increment = angle_increment;
     return;
 }
 
 void ky040_reset(KY040_t * encoder)
 {
-    encoder->_angle_variation = 0;
+    if(encoder->angular_position > KY040_ANGLE_RESET_LIMIT || encoder->angular_position < -KY040_ANGLE_RESET_LIMIT)
+    {        
+        encoder->angular_position = 0;
+        encoder->angular_position_previous = 0;
+    }
+    else
+    {        
+        encoder->angular_position_previous = encoder->angular_position;
+    }
     return;
 }
 
-int ky040_get_angle_variation(KY040_t * encoder)
-{
-    return encoder->_angle_variation;
+int ky040_get_angle_difference(KY040_t * encoder)
+{     
+    int difference = encoder->angular_position - encoder->angular_position_previous;
+    ky040_reset(encoder);
+    return difference;
 }

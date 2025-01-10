@@ -19,6 +19,7 @@
 QueueHandle_t encoder_queue = NULL;
 extern QueueHandle_t manager_queue;
 queue_message encoder_queue_message;
+int encoder_message_params[MESSAGE_PARAMS_LENGTH];
 
 uint8_t encoder_variation_mode = 0;
 
@@ -36,6 +37,8 @@ void encoder_task()
     ky040_init(&ky040_encoder, ENCODER_PIN_A, ENCODER_PIN_B, ENCODER_ANGLE_INCREMENT);
 
     ESP_LOGW(TAG, "Task started correctly");
+    
+    vTaskDelay(pdMS_TO_TICKS(100));
 
     while(1)
     {
@@ -58,57 +61,39 @@ void encoder_task()
             }
         }
 
-        int angle_variation = ky040_get_angle_variation(&ky040_encoder);
+        int angle_difference = ky040_get_angle_difference(&ky040_encoder);
         switch (encoder_variation_mode)
         {            
             case ENCODER_MODE_SINGLE:
             {
-                if(angle_variation != 0)
+                if(angle_difference != 0)
                 {
-                    queue_message tx_mess;
-                    
-                    memset(&tx_mess, 0, sizeof(queue_message));
-                    tx_mess.sender_id = SENDER_ID_ENCODER;
-                    tx_mess.device_id = DEVICE_ID_MANAGER;
-                    tx_mess.message_id = MESSAGE_ID_ENCODER_ANGLE_VARIATION;
-                    tx_mess.data[0] = angle_variation;
-                    while(manager_queue == NULL)
-                        vTaskDelay(100);
-                    xQueueSend(manager_queue, &tx_mess, 10);
+                    encoder_message_params[0] = angle_difference;
+                    send_message(manager_queue, SENDER_ID_ENCODER, DEVICE_ID_MANAGER, MESSAGE_ID_ENCODER_ANGLE_VARIATION, encoder_message_params);
 
-                    ky040_reset(&ky040_encoder);
-                    if(angle_variation > 0)                  
-                        ESP_LOGI(TAG, "Triggered Inc-UP   Single-Mode %d", angle_variation);
-                    else if(angle_variation < 0)                  
-                        ESP_LOGI(TAG, "Triggered Inc-Down Single-Mode %d", angle_variation);   
+                    if(angle_difference > 0)                  
+                        ESP_LOGI(TAG, "Triggered Inc-UP   Single-Mode %d", angle_difference);
+                    else if(angle_difference < 0)                  
+                        ESP_LOGI(TAG, "Triggered Inc-Down Single-Mode %d", angle_difference);   
                 }
             }
             break;
         
             case ENCODER_MODE_CHUNK:
             {
-                if(angle_variation > ENCODER_CHUNK_THRESHOLD || angle_variation < -ENCODER_CHUNK_THRESHOLD)
-                {
-                    queue_message tx_mess;
+                if(angle_difference > ENCODER_CHUNK_THRESHOLD || angle_difference < -ENCODER_CHUNK_THRESHOLD)
+                {                    
+                    encoder_message_params[0] = angle_difference;
+                    send_message(manager_queue, SENDER_ID_ENCODER, DEVICE_ID_MANAGER, MESSAGE_ID_ENCODER_ANGLE_VARIATION, encoder_message_params);
 
-                    memset(&tx_mess, 0, sizeof(queue_message));
-                    tx_mess.sender_id = SENDER_ID_ENCODER;
-                    tx_mess.device_id = DEVICE_ID_MANAGER;
-                    tx_mess.message_id = MESSAGE_ID_ENCODER_ANGLE_VARIATION;
-                    tx_mess.data[0] = angle_variation;
-                    while(manager_queue == NULL)
-                        vTaskDelay(100);
-                    xQueueSend(manager_queue, &tx_mess, 10);
-
-                    ky040_reset(&ky040_encoder);
-                    if(angle_variation > ENCODER_CHUNK_THRESHOLD)                  
-                        ESP_LOGI(TAG, "Triggered Inc-UP   Chunk-Mode %d", angle_variation);
-                    else if(angle_variation < -ENCODER_CHUNK_THRESHOLD)                  
-                        ESP_LOGI(TAG, "Triggered Inc-Down Chunk-Mode %d", angle_variation);   
+                    if(angle_difference > ENCODER_CHUNK_THRESHOLD)                  
+                        ESP_LOGI(TAG, "Triggered Inc-UP   Chunk-Mode %d", angle_difference);
+                    else if(angle_difference < -ENCODER_CHUNK_THRESHOLD)                  
+                        ESP_LOGI(TAG, "Triggered Inc-Down Chunk-Mode %d", angle_difference);   
                 }
             }
             break;
-        }
+        }                        
         
         esp_task_wdt_reset();
         vTaskDelay(pdMS_TO_TICKS(ENCODER_POLLING_RATE));

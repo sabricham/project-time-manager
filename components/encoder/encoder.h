@@ -7,9 +7,9 @@
 /* Public variables & defines */
 #define ENCODER_PIN_A                       0
 #define ENCODER_PIN_B                       1
-#define ENCODER_ANGLE_INCREMENT             5
+#define ENCODER_ANGLE_INCREMENT             1
 
-#define ENCODER_POLLING_RATE                100  //ms
+#define ENCODER_POLLING_RATE                30  //ms
 
 #define ENCODER_MODE_SINGLE                 0x01
 #define ENCODER_MODE_CHUNK                  0x02

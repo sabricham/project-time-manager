@@ -6,6 +6,9 @@
 #include "freertos/queue.h"
 #include "esp_log.h"
 
+#define MESSAGE_PARAMS_LENGTH                       10
+#define MESSAGE_PARAMS_SEND_TICKS                   1
+
 /* Components */
 
 /* Public variables & defines */
@@ -13,7 +16,7 @@ typedef struct{
     uint8_t sender_id;
     uint8_t device_id;
     uint8_t message_id;
-    int data[8];
+    int params[10];
 }queue_message;
 
 /*  SENDER_ID */
@@ -36,6 +39,7 @@ typedef struct{
 #define MESSAGE_ID_ENCODER_ANGLE_VARIATION          0x33
 
 /* Public functions & routines */
+void send_message(QueueHandle_t queue, uint8_t sender_id, uint8_t device_id, uint8_t message_id, int *params);
 void start_queue(QueueHandle_t * queue, queue_message * message, uint8_t size, char * task_tag);
 
 #endif /* _QUEUE_HANDLER_H_ */

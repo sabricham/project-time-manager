@@ -61,6 +61,8 @@ void display_task()
     uint16_t display_digits_number = 0;
 
     ESP_LOGW(TAG, "Task started correctly");
+    
+    vTaskDelay(pdMS_TO_TICKS(100));
 
     while(1)
     {
@@ -78,12 +80,12 @@ void display_task()
                         {
                             display_internal_state = DISPLAY_PAGE_IDLE;   
 
-                            if(display_horizontal_offset + display_queue_message.data[0] >= 456-128)
+                            if(display_horizontal_offset + display_queue_message.params[0] >= 456-128)
                                 display_horizontal_offset = 456-128;
-                            else if(display_horizontal_offset + display_queue_message.data[0] <= 0)
+                            else if(display_horizontal_offset + display_queue_message.params[0] <= 0)
                                 display_horizontal_offset = 0;
                             else
-                                display_horizontal_offset += display_queue_message.data[0];
+                                display_horizontal_offset += display_queue_message.params[0];
 
                         }
                         break;
@@ -91,7 +93,7 @@ void display_task()
                         {
                             display_internal_state = DISPLAY_PAGE_DIGITS;   
 
-                            display_digits_number = display_queue_message.data[0];
+                            display_digits_number = display_queue_message.params[0];
                             if (display_digits_number > 9999){
                                 display_digits_number = display_digits_number % 10000; 
                             }                                                                             
@@ -134,7 +136,7 @@ void display_task()
         }
 
         esp_task_wdt_reset();
-        vTaskDelay(1);
+        vTaskDelay(pdMS_TO_TICKS(30));
     }
     
     ESP_LOGE(TAG, "This section should not be reached");
