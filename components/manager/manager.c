@@ -1,206 +1,278 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <stdint.h>
-#include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
-#include "esp_log.h"
-#include "esp_task_wdt.h"
-
-/* Components */
 #include "manager.h"
-#include "display.h"
-#include "encoder.h"
 
-#include "queue_handler.h"
-#include "task_handler.h"
+//======================================================================================
+/* 
+*   Macros
+*/
+//======================================================================================
 
-/* Private variables & defines */
-#define TAG "Manager"
-extern QueueHandle_t display_queue;
-extern QueueHandle_t encoder_queue;
-QueueHandle_t manager_queue = NULL;
-queue_message manager_queue_message;
-int manager_messages_params[MESSAGE_PARAMS_LENGTH];
+#define TAG             "Manager"
 
-enum manager_internal_state{
-    manager_state_startup,
-    manager_state_idle,
-    manager_state_timer,
-    manager_state_stopwatch,
-    manager_state_pomodoro,
-    manager_state_settings
+//======================================================================================
+/* 
+*   Private variables & defines
+*/
+//======================================================================================
+
+extern QueueHandle_t displayQueue;
+extern QueueHandle_t encoderQueue;
+QueueHandle_t managerQueue = NULL;
+queueMessage managerQueueMessage;
+int managerMessagesParams[MESSAGE_PARAMS_LENGTH];
+
+enum managerInternalState{
+    managerStateStartup,
+    managerStateIdle,
+    managerStateTimer,
+    managerStateStopwatch,
+    managerStatePomodoro,
+    managerStateSettings
 };
-uint8_t manager_state = manager_state_idle;
+uint8_t managerState = managerStateStartup;
 
-TickType_t timer_seconds_counter = 0;
+uint16_t timerTimeSelected;
+uint16_t timerTimeSelectedPrevious;
+gptimer_handle_t timerSeconds = NULL;
+uint16_t timerTimeCounter;
+bool timerTimeExpired;
 
-/*-----------------------------------------------------*/
-#define MAX_TIME_SELECTABLE                     60*60
-#define MIN_TIME_SELECTABLE                     0
-#define REGULAR_STEPS_TIME_SELECTION            5
-#define LONG_STEPS_TIME_SELECTION               30
-#define VERY_LONG_STEPS_TIME_SELECTION          60
-#define STEPS_FIRST_TIME_SELECTION_THRESHOLD    90
-#define STEPS_SECOND_TIME_SELECTION_THRESHOLD   360
-
-uint16_t timer_time_selected;
-uint16_t timer_time_selected_previous;
-uint16_t timer_time_passed;
-
-/* Private functions & routines */
-void reset_variables()
+//======================================================================================
+/* 
+*   Private functions & routines
+*/
+//======================================================================================
+/*
+*   Clear all modified variables
+*/
+void ResetVariables()
 {
-    timer_time_selected = 0;
-    timer_time_selected_previous = 0;
-    timer_time_passed = 0;
+    timerTimeSelected = 0;
+    timerTimeSelectedPrevious = 0;
+    timerTimeExpired = false;
 }
 
-uint8_t manager_startup()
+/*
+*   Timer callback when finished counting
+*/
+void TimerTimeCounterCallback(void * args) 
+{ 
+    // This function will be called when the timer expires
+    ESP_LOGI(TAG, "Time counter, timer expired!");    
+    timerTimeExpired = true;
+}
+
+//======================================================================================
+/*
+*   FSM Startup state
+*/
+uint8_t ManagerStartup()
 { 
     // set encoder single mode
-    send_message(encoder_queue, SENDER_ID_MANAGER, DEVICE_ID_ENCODER, MESSAGE_ID_ENCODER_MODE_SINGLE, NULL);
+    SendMessage(encoderQueue, SENDER_ID_MANAGER, DEVICE_ID_ENCODER, MESSAGE_ID_ENCODER_MODE_SINGLE, NULL);
         
     //set screen time 00:00
-    manager_messages_params[0] = 0;
-    send_message(display_queue, SENDER_ID_MANAGER, DEVICE_ID_DISPLAY, MESSAGE_ID_DISPLAY_PAGE_DIGITS, manager_messages_params);
+    managerMessagesParams[0] = 0;
+    SendMessage(displayQueue, SENDER_ID_MANAGER, DEVICE_ID_DISPLAY, MESSAGE_ID_DISPLAY_PAGE_DIGITS, managerMessagesParams);
 
-    return manager_state_idle;
+    return managerStateIdle;
 }
 
-uint8_t manager_idle()
-{    
-    queue_message rx_mess; 
-
-    if(xQueueReceive(manager_queue, &rx_mess, 0))
+/*
+*   FSM Idle state
+*/
+uint8_t ManagerIdle()
+{   
+    queueMessage messageRX; 
+    
+    if(xQueueReceive(managerQueue, &messageRX, 0))
     {
-        if(rx_mess.sender_id == SENDER_ID_ENCODER)
+        if(messageRX.senderID == SENDER_ID_ENCODER)
         {
-            switch(rx_mess.message_id)
+            switch(messageRX.messageID)
             {
-                case MESSAGE_ID_ENCODER_ANGLE_VARIATION:
+                case MESSAGE_ID_ENCODER_ANGLE_VARIATION:    //Encoder angle has been changed
                 {
-                    //within max min range of time selectability
-                    if(timer_time_selected + rx_mess.params[0] <= MAX_TIME_SELECTABLE || timer_time_selected + rx_mess.params[0] >= MIN_TIME_SELECTABLE)
+                    // Selected time has been changed
+                    if(timerTimeSelected + messageRX.params[0] <= MANAGER_MAX_TIME_SELECTABLE || timerTimeSelected + messageRX.params[0] >= MANAGER_MIN_TIME_SELECTABLE)
                     {
                         //under first threshold
-                        if(timer_time_selected < STEPS_FIRST_TIME_SELECTION_THRESHOLD) 
+                        if(timerTimeSelected < MANAGER_STEPS_FIRST_TIME_SELECTION_THRESHOLD) 
                         {
                             //going over threshold
-                            if(timer_time_selected + rx_mess.params[0] * REGULAR_STEPS_TIME_SELECTION >= STEPS_FIRST_TIME_SELECTION_THRESHOLD) 
+                            if(timerTimeSelected + messageRX.params[0] * MANAGER_REGULAR_STEPS_TIME_SELECTION >= MANAGER_STEPS_FIRST_TIME_SELECTION_THRESHOLD) 
                             {
                                 ESP_LOGI(TAG, "going over first threshold");
-                                timer_time_selected = STEPS_FIRST_TIME_SELECTION_THRESHOLD;
+                                timerTimeSelected = MANAGER_STEPS_FIRST_TIME_SELECTION_THRESHOLD;
                             }
                             //trying to go under min
-                            else if(timer_time_selected + rx_mess.params[0] * REGULAR_STEPS_TIME_SELECTION < MIN_TIME_SELECTABLE)
+                            else if(timerTimeSelected + messageRX.params[0] * MANAGER_REGULAR_STEPS_TIME_SELECTION < MANAGER_MIN_TIME_SELECTABLE)
                             {
                                 ESP_LOGI(TAG, "trying to go under min");
-                                timer_time_selected = MIN_TIME_SELECTABLE;
+                                timerTimeSelected = MANAGER_MIN_TIME_SELECTABLE;
                             }  
                             //staying under threshold 
                             else    
                             {
                                 ESP_LOGI(TAG, "staying under first threshold ");
-                                timer_time_selected += rx_mess.params[0] * REGULAR_STEPS_TIME_SELECTION;
+                                timerTimeSelected += messageRX.params[0] * MANAGER_REGULAR_STEPS_TIME_SELECTION;
                             }
                         }
                         //over first threshold
-                        else if(timer_time_selected < STEPS_SECOND_TIME_SELECTION_THRESHOLD)
+                        else if(timerTimeSelected < MANAGER_STEPS_SECOND_TIME_SELECTION_THRESHOLD)
                         {
                             //going over second threshold
-                            if(timer_time_selected + rx_mess.params[0] * LONG_STEPS_TIME_SELECTION >= STEPS_SECOND_TIME_SELECTION_THRESHOLD)
+                            if(timerTimeSelected + messageRX.params[0] * MANAGER_LONG_STEPS_TIME_SELECTION >= MANAGER_STEPS_SECOND_TIME_SELECTION_THRESHOLD)
                             {                                
                                 ESP_LOGI(TAG, "going over second threshold");
-                                timer_time_selected = STEPS_SECOND_TIME_SELECTION_THRESHOLD;
+                                timerTimeSelected = MANAGER_STEPS_SECOND_TIME_SELECTION_THRESHOLD;
                             }
                             //going under first threshold
-                            else if(timer_time_selected + rx_mess.params[0] * LONG_STEPS_TIME_SELECTION < STEPS_FIRST_TIME_SELECTION_THRESHOLD) 
+                            else if(timerTimeSelected + messageRX.params[0] * MANAGER_LONG_STEPS_TIME_SELECTION < MANAGER_STEPS_FIRST_TIME_SELECTION_THRESHOLD) 
                             {
                                 ESP_LOGI(TAG, "going under first threshold");
-                                timer_time_selected = STEPS_FIRST_TIME_SELECTION_THRESHOLD - REGULAR_STEPS_TIME_SELECTION;
+                                timerTimeSelected = MANAGER_STEPS_FIRST_TIME_SELECTION_THRESHOLD - MANAGER_REGULAR_STEPS_TIME_SELECTION;
                             }                             
                             //staying over first threshold 
                             else
                             {
                                 ESP_LOGI(TAG, "staying over first threshold & under second threshold");
-                                timer_time_selected += rx_mess.params[0] * LONG_STEPS_TIME_SELECTION;
+                                timerTimeSelected += messageRX.params[0] * MANAGER_LONG_STEPS_TIME_SELECTION;
                             }                            
                         }
                         //over second threshold
                         else
                         {   
                             //trying to go over max
-                            if(timer_time_selected + rx_mess.params[0] * VERY_LONG_STEPS_TIME_SELECTION > MAX_TIME_SELECTABLE)
+                            if(timerTimeSelected + messageRX.params[0] * MANAGER_VERY_LONG_STEPS_TIME_SELECTION > MANAGER_MAX_TIME_SELECTABLE)
                             {
                                 ESP_LOGI(TAG, "trying to go over max");
-                                timer_time_selected = MAX_TIME_SELECTABLE;
+                                timerTimeSelected = MANAGER_MAX_TIME_SELECTABLE;
                             }
                             //going under first threshold
-                            else if(timer_time_selected + rx_mess.params[0] * VERY_LONG_STEPS_TIME_SELECTION < STEPS_SECOND_TIME_SELECTION_THRESHOLD) 
+                            else if(timerTimeSelected + messageRX.params[0] * MANAGER_VERY_LONG_STEPS_TIME_SELECTION < MANAGER_STEPS_SECOND_TIME_SELECTION_THRESHOLD) 
                             {
                                 ESP_LOGI(TAG, "going under second threshold");
-                                timer_time_selected = STEPS_SECOND_TIME_SELECTION_THRESHOLD - LONG_STEPS_TIME_SELECTION;
+                                timerTimeSelected = MANAGER_STEPS_SECOND_TIME_SELECTION_THRESHOLD - MANAGER_LONG_STEPS_TIME_SELECTION;
                             }  
                             //staying over second threshold 
                             else
                             {
                                 ESP_LOGI(TAG, "staying over second threshold");
-                                timer_time_selected += rx_mess.params[0] * VERY_LONG_STEPS_TIME_SELECTION;
+                                timerTimeSelected += messageRX.params[0] * MANAGER_VERY_LONG_STEPS_TIME_SELECTION;
                             }  
                         }
-                    }               
+                    }  
+                    
+                    // Refresh screen
+                    if(timerTimeSelectedPrevious != timerTimeSelected)
+                    {
+                        timerTimeSelectedPrevious = timerTimeSelected;
+                        
+                        managerMessagesParams[0] = (timerTimeSelected / 60) * 100 + (timerTimeSelected % 60);
+                        SendMessage(displayQueue, SENDER_ID_MANAGER, DEVICE_ID_DISPLAY, MESSAGE_ID_DISPLAY_PAGE_DIGITS, managerMessagesParams);
+                    }             
+                }
+                break;
+                case MESSAGE_ID_ENCODER_SWITCH_TRIGGER:    //Encoder switch has been triggered
+                {   
+                    // Start the timer and change state
+                    ESP_LOGI(TAG, "Switching fsm state to Timer");
+                    timerTimeSelectedPrevious = timerTimeSelected; 
+
+                    return managerStateTimer;            
                 }
                 break;
             }
         }
     } 
 
-    if(timer_time_selected_previous != timer_time_selected)
+    return managerStateIdle;
+}
+
+/*
+*   FSM Timer state
+*/
+uint8_t ManagerTimer()
+{/*
+    // Check timer expired
+    if(timer_time_completed)
     {
-        timer_time_selected_previous = timer_time_selected;
-        
-        //refresh screen with new selected time
-        manager_messages_params[0] = (timer_time_selected/60)*100 + (timer_time_selected%60);
-        send_message(display_queue, SENDER_ID_MANAGER, DEVICE_ID_DISPLAY, MESSAGE_ID_DISPLAY_PAGE_DIGITS, manager_messages_params);
+        reset_variables();
+        return manager_state_timer;
     }
 
-    return manager_state_idle;
+    // Refresh screen
+    if((xTimerGetExpiryTime(timer_time_counter) - xTaskGetTickCount())/100 != timer_time_counter_previous)
+    {
+        timer_time_counter_previous = (xTimerGetExpiryTime(timer_time_counter) - xTaskGetTickCount()) / 100;
+
+        managerMessagesParams[0] = (timer_time_counter_previous/60)*100 + (timer_time_counter_previous%60);
+        send_message(displayQueue, SENDER_ID_MANAGER, DEVICE_ID_DISPLAY, MESSAGE_ID_DISPLAY_PAGE_DIGITS, managerMessagesParams);
+    }
+
+    // Log
+    char float_str[20]; 
+    sprintf(float_str, "%.2ld", (xTimerGetExpiryTime(timer_time_counter) - xTaskGetTickCount()) / 100);
+
+    ESP_LOGI(TAG, "timer_counter: %s, casted_timer_counter: %ld", float_str, timer_time_counter_previous);*/
+    
+    return managerStateTimer;
 }
 
-uint8_t manager_timer()
+/*
+*   FSM Stopwatch state
+*/
+uint8_t ManagerStopwatch()
 {
-    return manager_state_timer;
+    return managerStateStopwatch;    
 }
 
-uint8_t manager_stopwatch()
+/*
+*   FSM Pomodoro state
+*/
+uint8_t ManagerPomodoro()
 {
-    return manager_state_stopwatch;    
+    return managerStatePomodoro;
 }
 
-uint8_t manager_pomodoro()
+/*
+*   FSM Settings state
+*/
+uint8_t ManagerSettings()
 {
-    return manager_state_pomodoro;
+    return managerStateSettings;
 }
 
-uint8_t manager_settings()
-{
-    return manager_state_settings;
-}
+//======================================================================================
+/* 
+*   Public variables & defines
+*/
+//======================================================================================
 
-/* Public functions & routines */
-void manager_task()
+//======================================================================================
+/* 
+*   Public functions & routines
+*/
+//======================================================================================
+/*
+*   Entry point of the task
+*/
+void ManagerTask()
 {
+    //======================================================================================
     ESP_LOGW(TAG, "Starting task");
 
     esp_task_wdt_add(NULL);
-    start_queue(&manager_queue, &manager_queue_message, 10, TAG);
-    manager_state = manager_state_startup;
-    reset_variables();
+    CreateQueue(&managerQueue, &managerQueueMessage, 10, TAG);
+    ResetVariables();
+
+    TimerCreate(&timerSeconds, 1, GPTIMER_CLK_SRC_DEFAULT, GPTIMER_COUNT_UP, 500, 0, TimerTimeCounterCallback, NULL);
+    managerState = managerStateStartup;
 
     ESP_LOGW(TAG, "Task started correctly");
+    //======================================================================================
     
-    vTaskDelay(pdMS_TO_TICKS(100));
+    vTaskDelay(pdMS_TO_TICKS(MANAGER_TASK_STARTUP_DELAY));
 
     while(1)
     {
@@ -212,42 +284,42 @@ void manager_task()
         }
         */
         
-        switch(manager_state)
+        switch(managerState)
         {
-            case manager_state_startup:
+            case managerStateStartup:
             {
-                manager_state = manager_startup();
+                managerState = ManagerStartup();
             }
             break;
-            case manager_state_idle:
+            case managerStateIdle:
             {
-                manager_state = manager_idle();
+                managerState = ManagerIdle();
             }
             break;
-            case manager_state_timer:
+            case managerStateTimer:
             {
-                manager_state = manager_timer();
+                managerState = ManagerTimer();
             }
             break;
-            case manager_state_stopwatch:
+            case managerStateStopwatch:
             {
-                manager_state = manager_stopwatch();
+                managerState = ManagerStopwatch();
             }
             break;
-            case manager_state_pomodoro:
+            case managerStatePomodoro:
             {
-                manager_state = manager_pomodoro();
+                managerState = ManagerPomodoro();
             }
             break;
-            case manager_state_settings:
+            case managerStateSettings:
             {
-                manager_state = manager_settings();
+                managerState = ManagerSettings();
             }
             break;
         }
 
         esp_task_wdt_reset();
-        vTaskDelay(pdMS_TO_TICKS(30));
+        vTaskDelay(pdMS_TO_TICKS(MANAGER_TASK_POLLING_RATE));
     }
     
     ESP_LOGE(TAG, "This section should not be reached");

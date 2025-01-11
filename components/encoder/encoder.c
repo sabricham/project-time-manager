@@ -1,102 +1,128 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <stdint.h>
-#include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
-#include "esp_log.h"
-#include "esp_task_wdt.h"
-
-/* Components */
 #include "encoder.h"
-#include "ky040.h"
 
-#include "queue_handler.h"
-#include "task_handler.h"
+//======================================================================================
+/* 
+*   Macros
+*/
+//======================================================================================
 
-/* Private variables & defines */
-#define TAG "Encoder"
-QueueHandle_t encoder_queue = NULL;
-extern QueueHandle_t manager_queue;
-queue_message encoder_queue_message;
-int encoder_message_params[MESSAGE_PARAMS_LENGTH];
+#define TAG             "Encoder"
 
-uint8_t encoder_variation_mode = 0;
+//======================================================================================
+/* 
+*   Private variables & defines
+*/
+//======================================================================================
 
-/* Public functions & routines */
-QueueHandle_t queue;
+QueueHandle_t encoderQueue = NULL;
+extern QueueHandle_t managerQueue;
+queueMessage encoderQueueMessage;
+int encoderMessageParams[MESSAGE_PARAMS_LENGTH];
 
-void encoder_task()
+uint8_t encoderVariationMode = 0;
+
+//======================================================================================
+/* 
+*   Private functions & routines
+*/
+//======================================================================================
+
+//======================================================================================
+/* 
+*   Public variables & defines
+*/
+//======================================================================================
+
+//======================================================================================
+/* 
+*   Public functions & routines
+*/
+//======================================================================================
+/*
+*   Entry point of the task
+*/
+void EncoderTask()
 {    
+    //======================================================================================
     ESP_LOGW(TAG, "Starting task");
 
     esp_task_wdt_add(NULL);
-    start_queue(&encoder_queue, &encoder_queue_message, 10, TAG);
-    encoder_variation_mode = ENCODER_MODE_SINGLE;
-    KY040_t ky040_encoder;
-    ky040_init(&ky040_encoder, ENCODER_PIN_A, ENCODER_PIN_B, ENCODER_ANGLE_INCREMENT);
+    CreateQueue(&encoderQueue, &encoderQueueMessage, 10, TAG);
+    encoderVariationMode = ENCODER_MODE_SINGLE;
+
+    KY040_t ky040Encoder;
+    KY040Init(&ky040Encoder, ENCODER_PIN_A, ENCODER_PIN_B, ENCODER_PIN_SWITCH, ENCODER_ANGLE_INCREMENT);
 
     ESP_LOGW(TAG, "Task started correctly");
+    //======================================================================================
     
-    vTaskDelay(pdMS_TO_TICKS(100));
+    vTaskDelay(pdMS_TO_TICKS(ENCODER_TASK_STARTUP_DELAY));
 
     while(1)
     {
         // Get messages from other tasks
-        if(xQueueReceive(encoder_queue, &encoder_queue_message, 0))
+        if(xQueueReceive(encoderQueue, &encoderQueueMessage, 0))
         {
             ESP_LOGI(TAG, "Received message");
-            switch(encoder_queue_message.message_id)
+            switch(encoderQueueMessage.messageID)
             {
                 case MESSAGE_ID_ENCODER_MODE_SINGLE:
                 {
-                    encoder_variation_mode = ENCODER_MODE_SINGLE;
+                    encoderVariationMode = ENCODER_MODE_SINGLE;
                 }
                 break;
                 case MESSAGE_ID_ENCODER_MODE_CHUNK:
                 {
-                    encoder_variation_mode = ENCODER_MODE_CHUNK;
+                    encoderVariationMode = ENCODER_MODE_CHUNK;
                 }
                 break;
             }
         }
 
-        int angle_difference = ky040_get_angle_difference(&ky040_encoder);
-        switch (encoder_variation_mode)
+        // Encoder 
+        int angleDifference = KY040EncoderGetAngleDifference(&ky040Encoder);
+        switch (encoderVariationMode)
         {            
             case ENCODER_MODE_SINGLE:
             {
-                if(angle_difference != 0)
+                if(angleDifference != 0)
                 {
-                    encoder_message_params[0] = angle_difference;
-                    send_message(manager_queue, SENDER_ID_ENCODER, DEVICE_ID_MANAGER, MESSAGE_ID_ENCODER_ANGLE_VARIATION, encoder_message_params);
+                    encoderMessageParams[0] = angleDifference;
+                    SendMessage(managerQueue, SENDER_ID_ENCODER, DEVICE_ID_MANAGER, MESSAGE_ID_ENCODER_ANGLE_VARIATION, encoderMessageParams);
 
-                    if(angle_difference > 0)                  
-                        ESP_LOGI(TAG, "Triggered Inc-UP   Single-Mode %d", angle_difference);
-                    else if(angle_difference < 0)                  
-                        ESP_LOGI(TAG, "Triggered Inc-Down Single-Mode %d", angle_difference);   
+                    if(angleDifference > 0)                  
+                        ESP_LOGI(TAG, "Triggered Inc-UP   Single-Mode %d", angleDifference);
+                    else if(angleDifference < 0)                  
+                        ESP_LOGI(TAG, "Triggered Inc-Down Single-Mode %d", angleDifference);   
                 }
             }
             break;
         
             case ENCODER_MODE_CHUNK:
             {
-                if(angle_difference > ENCODER_CHUNK_THRESHOLD || angle_difference < -ENCODER_CHUNK_THRESHOLD)
+                if(angleDifference > ENCODER_CHUNK_THRESHOLD || angleDifference < -ENCODER_CHUNK_THRESHOLD)
                 {                    
-                    encoder_message_params[0] = angle_difference;
-                    send_message(manager_queue, SENDER_ID_ENCODER, DEVICE_ID_MANAGER, MESSAGE_ID_ENCODER_ANGLE_VARIATION, encoder_message_params);
+                    encoderMessageParams[0] = angleDifference;
+                    SendMessage(managerQueue, SENDER_ID_ENCODER, DEVICE_ID_MANAGER, MESSAGE_ID_ENCODER_ANGLE_VARIATION, encoderMessageParams);
 
-                    if(angle_difference > ENCODER_CHUNK_THRESHOLD)                  
-                        ESP_LOGI(TAG, "Triggered Inc-UP   Chunk-Mode %d", angle_difference);
-                    else if(angle_difference < -ENCODER_CHUNK_THRESHOLD)                  
-                        ESP_LOGI(TAG, "Triggered Inc-Down Chunk-Mode %d", angle_difference);   
+                    if(angleDifference > ENCODER_CHUNK_THRESHOLD)                  
+                        ESP_LOGI(TAG, "Triggered Inc-UP   Chunk-Mode %d", angleDifference);
+                    else if(angleDifference < -ENCODER_CHUNK_THRESHOLD)                  
+                        ESP_LOGI(TAG, "Triggered Inc-Down Chunk-Mode %d", angleDifference);   
                 }
             }
             break;
-        }                        
+        }     
+
+        //Switch
+        if(KY040SwitchGetActivation(&ky040Encoder))      
+        {
+            ESP_LOGI(TAG, "Triggered Switch");   
+            SendMessage(managerQueue, SENDER_ID_ENCODER, DEVICE_ID_MANAGER, MESSAGE_ID_ENCODER_SWITCH_TRIGGER, NULL);
+        }             
         
         esp_task_wdt_reset();
-        vTaskDelay(pdMS_TO_TICKS(ENCODER_POLLING_RATE));
+        vTaskDelay(pdMS_TO_TICKS(ENCODER_TASK_POLLING_RATE));
     }
 
     ESP_LOGE(TAG, "This section should not be reached");
