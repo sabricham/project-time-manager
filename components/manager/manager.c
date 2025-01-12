@@ -33,8 +33,8 @@ uint8_t managerState = managerStateStartup;
 uint16_t timerTimeSelected;
 uint16_t timerTimeSelectedPrevious;
 gptimer_handle_t timerSeconds = NULL;
-uint16_t timerTimeCounter;
-bool timerTimeExpired;
+int timerTimeCounter;
+int timerTimerCounterPrevious;
 
 //======================================================================================
 /* 
@@ -48,17 +48,16 @@ void ResetVariables()
 {
     timerTimeSelected = 0;
     timerTimeSelectedPrevious = 0;
-    timerTimeExpired = false;
+    timerTimeCounter = 0;
 }
 
 /*
-*   Timer callback when finished counting
+*   Timer callback for every second passed decreases the counter
 */
-void TimerTimeCounterCallback(void * args) 
+static void IRAM_ATTR TimerTimeCounterCallback(gptimer_handle_t timer, const gptimer_alarm_event_data_t *edata, void *arg) 
 { 
-    // This function will be called when the timer expires
-    ESP_LOGI(TAG, "Time counter, timer expired!");    
-    timerTimeExpired = true;
+    timerTimeCounter--;   
+    return;
 }
 
 //======================================================================================
@@ -86,6 +85,8 @@ uint8_t ManagerIdle()
     
     if(xQueueReceive(managerQueue, &messageRX, 0))
     {
+        ESP_LOGI(TAG, "Received message");
+
         if(messageRX.senderID == SENDER_ID_ENCODER)
         {
             switch(messageRX.messageID)
@@ -177,7 +178,11 @@ uint8_t ManagerIdle()
                 {   
                     // Start the timer and change state
                     ESP_LOGI(TAG, "Switching fsm state to Timer");
-                    timerTimeSelectedPrevious = timerTimeSelected; 
+                    timerTimeCounter = timerTimeSelected; 
+                    timerTimerCounterPrevious = 0;
+
+                    TimerSet(timerSeconds, 0);
+                    TimerStart(timerSeconds);
 
                     return managerStateTimer;            
                 }
@@ -193,29 +198,37 @@ uint8_t ManagerIdle()
 *   FSM Timer state
 */
 uint8_t ManagerTimer()
-{/*
-    // Check timer expired
-    if(timer_time_completed)
+{
+    // Get messages from other tasks
+    if(xQueueReceive(managerQueue, &managerQueueMessage, 0))
     {
-        reset_variables();
-        return manager_state_timer;
+        ESP_LOGI(TAG, "Received message");
     }
 
-    // Refresh screen
-    if((xTimerGetExpiryTime(timer_time_counter) - xTaskGetTickCount())/100 != timer_time_counter_previous)
+    if(timerTimeCounter <= 0)
     {
-        timer_time_counter_previous = (xTimerGetExpiryTime(timer_time_counter) - xTaskGetTickCount()) / 100;
+        ESP_LOGI(TAG, "Time expired!");
 
-        managerMessagesParams[0] = (timer_time_counter_previous/60)*100 + (timer_time_counter_previous%60);
-        send_message(displayQueue, SENDER_ID_MANAGER, DEVICE_ID_DISPLAY, MESSAGE_ID_DISPLAY_PAGE_DIGITS, managerMessagesParams);
+        //reset all the needed for loop
+        ResetVariables();
+        TimerReset(timerSeconds, 0);
+
+        //refresh image to 00:00
+        managerMessagesParams[0] = 0;
+        SendMessage(displayQueue, SENDER_ID_MANAGER, DEVICE_ID_DISPLAY, MESSAGE_ID_DISPLAY_PAGE_DIGITS, managerMessagesParams);
+
+        return managerStateIdle;
     }
+    else if(timerTimeCounter != timerTimerCounterPrevious)
+    {
+        timerTimerCounterPrevious = timerTimeCounter;
+        ESP_LOGI(TAG, "timerTimerCounterPrevious: %d", timerTimerCounterPrevious);
 
-    // Log
-    char float_str[20]; 
-    sprintf(float_str, "%.2ld", (xTimerGetExpiryTime(timer_time_counter) - xTaskGetTickCount()) / 100);
-
-    ESP_LOGI(TAG, "timer_counter: %s, casted_timer_counter: %ld", float_str, timer_time_counter_previous);*/
-    
+        //refresh image to the time left
+        managerMessagesParams[0] = (timerTimerCounterPrevious / 60) * 100 + (timerTimerCounterPrevious % 60);
+        SendMessage(displayQueue, SENDER_ID_MANAGER, DEVICE_ID_DISPLAY, MESSAGE_ID_DISPLAY_PAGE_DIGITS, managerMessagesParams);
+        
+    }
     return managerStateTimer;
 }
 
@@ -266,7 +279,7 @@ void ManagerTask()
     CreateQueue(&managerQueue, &managerQueueMessage, 10, TAG);
     ResetVariables();
 
-    TimerCreate(&timerSeconds, 1, GPTIMER_CLK_SRC_DEFAULT, GPTIMER_COUNT_UP, 500, 0, TimerTimeCounterCallback, NULL);
+    TimerCreate(&timerSeconds, 1, 1*1000*1000, true, GPTIMER_CLK_SRC_DEFAULT, GPTIMER_COUNT_UP, 1000*1000, 0, TimerTimeCounterCallback, NULL);
     managerState = managerStateStartup;
 
     ESP_LOGW(TAG, "Task started correctly");
@@ -276,14 +289,6 @@ void ManagerTask()
 
     while(1)
     {
-        /*
-        // Get messages from other tasks
-        if(xQueueReceive(manager_queue, &manager_queue_message, 0))
-        {
-            ESP_LOGI(TAG, "Received message");
-        }
-        */
-        
         switch(managerState)
         {
             case managerStateStartup:

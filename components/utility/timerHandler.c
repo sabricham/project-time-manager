@@ -34,19 +34,19 @@
 /*
 *   Interface function to create a timer and enable it
 */
-void TimerCreate(gptimer_handle_t *timerHandle, int priority, gptimer_clock_source_t clockSource, gptimer_count_direction_t countDirection, uint64_t triggerValue, uint64_t startingValue, gptimer_alarm_cb_t timerCallback, void * args)
+void TimerCreate(gptimer_handle_t *timerHandle, int priority, uint64_t resolution, bool autoReload, gptimer_clock_source_t clockSource, gptimer_count_direction_t countDirection, uint64_t triggerValue, uint64_t startingValue, gptimer_alarm_cb_t timerCallback, void * args)
 {
     // Debounce timer settings
     gptimer_config_t timer_config = {
         .intr_priority = priority,
         .clk_src = clockSource,
         .direction = countDirection,
-        .resolution_hz = 1 * 1000 * 1000, 
+        .resolution_hz = resolution, 
     };
     ESP_ERROR_CHECK(gptimer_new_timer(&timer_config, timerHandle));
     gptimer_alarm_config_t timer_alarm_config = {
-        .flags.auto_reload_on_alarm = 0,
-        .alarm_count = triggerValue
+        .alarm_count = triggerValue,
+        .flags.auto_reload_on_alarm = autoReload
     };
     ESP_ERROR_CHECK(gptimer_set_alarm_action(*timerHandle, &timer_alarm_config));
     ESP_ERROR_CHECK(gptimer_set_raw_count(*timerHandle, startingValue));
@@ -97,6 +97,16 @@ void TimerReset(gptimer_handle_t timerHandle, uint64_t startingValue)
 void TimerSet(gptimer_handle_t timerHandle, uint64_t startingValue)
 {
     ESP_ERROR_CHECK(gptimer_set_raw_count(timerHandle, startingValue));
+}
+
+/*
+*   Get the time value it is now of the timer
+*/
+uint64_t TimerGet(gptimer_handle_t timerHandle)
+{
+    uint64_t nowValue;
+    ESP_ERROR_CHECK(gptimer_get_raw_count(timerHandle, &nowValue));
+    return nowValue;
 }
 
 /*

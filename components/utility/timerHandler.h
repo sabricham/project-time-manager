@@ -44,6 +44,8 @@
 
 void TimerCreate(gptimer_handle_t *timerHandle, 
     int priority, 
+    uint64_t resolution, 
+    bool autoReload, 
     gptimer_clock_source_t clockSource, 
     gptimer_count_direction_t countDirection, 
     uint64_t triggerValue, 
@@ -54,6 +56,7 @@ void TimerEnable(gptimer_handle_t timerHandle);
 void TimerDisable(gptimer_handle_t timerHandle);
 void TimerReset(gptimer_handle_t timerHandle, uint64_t startingValue);
 void TimerSet(gptimer_handle_t timerHandle, uint64_t startingValue);
+uint64_t TimerGet(gptimer_handle_t timerHandle);
 void TimerStart(gptimer_handle_t timerHandle);
 void TimerStop(gptimer_handle_t timerHandle);
 

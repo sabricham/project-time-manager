@@ -158,7 +158,7 @@ void KY040Init(KY040_t * encoder, uint8_t pinA, uint8_t pinB, uint8_t pinSwitch,
     ESP_LOGI(TAG, "Encoder & switch gpio pins config successfully");
 
     // Debounce timer settings
-    TimerCreate(&debounceTimer, 0, GPTIMER_CLK_SRC_DEFAULT, GPTIMER_COUNT_UP, 500, 0, KY040TimerISR, (KY040_t *) encoder);
+    TimerCreate(&debounceTimer, 0, 1*1000*1000, false, GPTIMER_CLK_SRC_DEFAULT, GPTIMER_COUNT_UP, 500, 0, KY040TimerISR, (KY040_t *) encoder);
     ESP_LOGI(TAG, "Encoder debounce timer setup completed successfully");
 
     // Assign handles
