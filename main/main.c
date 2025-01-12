@@ -1,3 +1,8 @@
+//--------------------------------------------------------------------------------------
+/* 
+*   Includes 
+*/
+//--------------------------------------------------------------------------------------
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -7,22 +12,38 @@
 #include "esp_log.h"
 #include "esp_task_wdt.h"
 
-/* Components */
+//--------------------------------------------------------------------------------------
+/* 
+*   Components 
+*/
+//--------------------------------------------------------------------------------------
 #include "display.h"
 #include "manager.h"
 #include "encoder.h"
 
-#include "queue_handler.h"
-#include "task_handler.h"
+#include "queueHandler.h"
+#include "taskHandler.h"
 
-/* Public variables & defines */
+//--------------------------------------------------------------------------------------
+/* 
+*   Public variables & defines 
+*/
+//--------------------------------------------------------------------------------------
 
 #define TAG "Main"
-QueueHandle_t main_queue = NULL;
-queue_message main_queue_message;
+QueueHandle_t mainQueue = NULL;
+queueMessage mainQueueMessage;
+int mainMessagesParams[MESSAGE_PARAMS_LENGTH];
 
-/* Public functions & routines */
+//--------------------------------------------------------------------------------------
+/* 
+*   Pulic functions & routines 
+*/
+//--------------------------------------------------------------------------------------
 
+/*
+*   Starting point of the code
+*/
 void app_main()
 {
     ESP_LOGW(TAG, "System startup procedure");
@@ -33,19 +54,19 @@ void app_main()
     ESP_LOGW(TAG, "-------------------------------------------");
 
     ESP_LOGW(TAG, "Starting system tasks");
-    start_task(encoder_task, "Encoder", configMINIMAL_STACK_SIZE * 2, tskIDLE_PRIORITY + 2);
-    start_task(manager_task, "Manager", configMINIMAL_STACK_SIZE * 2, tskIDLE_PRIORITY + 3);
-    start_task(display_task, "Display", configMINIMAL_STACK_SIZE * 2, tskIDLE_PRIORITY + 4);
+    StartTask(EncoderTask, "Encoder", configMINIMAL_STACK_SIZE * 2, tskIDLE_PRIORITY + 2);
+    StartTask(ManagerTask, "Manager", configMINIMAL_STACK_SIZE * 2, tskIDLE_PRIORITY + 3);
+    StartTask(DisplayTask, "Display", configMINIMAL_STACK_SIZE * 4, tskIDLE_PRIORITY + 4);
     ESP_LOGW(TAG, "System tasks started successfully");
     
     ESP_LOGW(TAG, "Starting task");
-    start_queue(&main_queue, &main_queue_message, 10, TAG);
+    CreateQueue(&mainQueue, &mainQueueMessage, 10, TAG);
     ESP_LOGW(TAG, "Task started correctly");
 
     while(1)
     {
         // Get messages from other tasks
-        if(xQueueReceive(main_queue, &main_queue_message, 0))
+        if(xQueueReceive(mainQueue, &mainQueueMessage, 0))
         {
             ESP_LOGI(TAG, "Received message");
         }

@@ -1,34 +1,4 @@
-#ifndef _DISPLAY_H_
-#define _DISPLAY_H_
-
-//======================================================================================
-/* 
-*   Includes 
-*/
-//======================================================================================
-
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <stdint.h>
-
-//======================================================================================
-/* 
-*   Components
-*/
-//======================================================================================
-
-#include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
-#include "freertos/queue.h"
-#include "esp_log.h"
-#include "esp_task_wdt.h"
-
-#include "bitmaps.h"
-#include "sh1106.h"
-
-#include "queueHandler.h"
-#include "taskHandler.h"
+#include "exampleTask.h"
 
 //======================================================================================
 /* 
@@ -36,18 +6,23 @@
 */
 //======================================================================================
 
-#define DISPLAY_TASK_STARTUP_DELAY      100
-#define DISPLAY_TASK_POLLING_RATE       25
+#define TAG             "Example Task"
 
-#define I2C_PIN_SDA                     6
-#define I2C_PIN_SCL                     7
+//======================================================================================
+/* 
+*   Private variables & defines
+*/
+//======================================================================================
 
-#define DISPLAY_WIDTH                   128
-#define DISPLAY_HEIGHT                  64
+QueueHandle_t sampleQueue = NULL;
+queueMessage sampleQueueMessage;
+int exampleTaskMessagesParams[MESSAGE_PARAMS_LENGTH];
 
-#define DISPLAY_PAGE_IDLE               0x01
-#define DISPLAY_PAGE_DIGITS             0x02
-#define DISPLAY_PAGE_SETTINGS           0x03
+//======================================================================================
+/* 
+*   Private functions & routines
+*/
+//======================================================================================
 
 //======================================================================================
 /* 
@@ -61,6 +36,30 @@
 */
 //======================================================================================
 
-void DisplayTask();
+/*
+*   This is an example of a task
+*/
+void ExampleTask()
+{
+    ESP_LOGI(TAG, "Starting task");
 
-#endif /* _DISPLAY_H_ */
+    esp_task_wdt_add(NULL);
+    start_queue(&sampleQueue, &sampleQueueMessage, 10, TAG);
+
+    ESP_LOGI(TAG, "Task started correctly");
+
+    while(1)
+    {
+        // Get messages from other tasks
+        if(xQueueReceive(sampleQueue, &sampleQueueMessage, 0))
+        {
+            ESP_LOGI(TAG, "Received message");
+        }
+        
+        esp_task_wdt_reset();
+        vTaskDelay(1);
+    }
+    
+    ESP_LOGE(TAG, "This section should not be reached");
+    return;
+}

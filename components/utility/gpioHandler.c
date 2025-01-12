@@ -1,34 +1,4 @@
-#ifndef _DISPLAY_H_
-#define _DISPLAY_H_
-
-//======================================================================================
-/* 
-*   Includes 
-*/
-//======================================================================================
-
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <stdint.h>
-
-//======================================================================================
-/* 
-*   Components
-*/
-//======================================================================================
-
-#include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
-#include "freertos/queue.h"
-#include "esp_log.h"
-#include "esp_task_wdt.h"
-
-#include "bitmaps.h"
-#include "sh1106.h"
-
-#include "queueHandler.h"
-#include "taskHandler.h"
+#include "gpioHandler.h"
 
 //======================================================================================
 /* 
@@ -36,18 +6,19 @@
 */
 //======================================================================================
 
-#define DISPLAY_TASK_STARTUP_DELAY      100
-#define DISPLAY_TASK_POLLING_RATE       25
+#define TAG             "GPIO Handler"
 
-#define I2C_PIN_SDA                     6
-#define I2C_PIN_SCL                     7
+//======================================================================================
+/* 
+*   Private variables & defines
+*/
+//======================================================================================
 
-#define DISPLAY_WIDTH                   128
-#define DISPLAY_HEIGHT                  64
-
-#define DISPLAY_PAGE_IDLE               0x01
-#define DISPLAY_PAGE_DIGITS             0x02
-#define DISPLAY_PAGE_SETTINGS           0x03
+//======================================================================================
+/* 
+*   Private functions & routines
+*/
+//======================================================================================
 
 //======================================================================================
 /* 
@@ -60,7 +31,33 @@
 *   Public functions & routines
 */
 //======================================================================================
+/*
+*   Interface function to create a GPIO
+*/
+void GPIOCreate(uint8_t pin, gpio_int_type_t intrType, gpio_mode_t mode)
+{
+    gpio_config_t gpio_conf = {
+        .intr_type = intrType,
+        .mode = mode,
+        .pin_bit_mask = (1ULL<<pin),
+        .pull_up_en = 1
+    };             
+	ESP_ERROR_CHECK(gpio_config(&gpio_conf));
+    ESP_LOGI(TAG, "New GPIO has been configured");
+}
 
-void DisplayTask();
+/*
+*   Install ISR to enable the interrupt routine functions
+*/
+void GPIOInstallISR()
+{
+    ESP_ERROR_CHECK(gpio_install_isr_service(ESP_INTR_FLAG_IRAM));
+}
 
-#endif /* _DISPLAY_H_ */
+/*
+*   Connect an interrupt routine to the GPIO
+*/
+void GPIOAddISR(uint8_t pin, gpio_isr_t isrRoutine, void *args)
+{    
+    ESP_ERROR_CHECK(gpio_isr_handler_add(pin, isrRoutine, args));
+}
