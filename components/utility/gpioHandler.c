@@ -1,33 +1,4 @@
-#ifndef _LED_H_
-#define _LED_H_
-
-//======================================================================================
-/* 
-*   Includes 
-*/
-//======================================================================================
-
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <stdint.h>
-#include <math.h>
-
-//======================================================================================
-/* 
-*   Components
-*/
-//======================================================================================
-
-#include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
-#include "esp_log.h"
-#include "esp_task_wdt.h"
-
-#include "led_strip.h"
-
-#include "queueHandler.h"
-#include "taskHandler.h"
+#include "gpioHandler.h"
 
 //======================================================================================
 /* 
@@ -35,10 +6,19 @@
 */
 //======================================================================================
 
-#define LED_STRIP_RMT_RES_HZ                (10 * 1000 * 1000)
+#define TAG             "GPIO Handler"
 
-#define LED_STRIP_WS2812B_DATA_PIN          5
-#define LED_STRIP_WS2812B_NUM_LEDS          18
+//======================================================================================
+/* 
+*   Private variables & defines
+*/
+//======================================================================================
+
+//======================================================================================
+/* 
+*   Private functions & routines
+*/
+//======================================================================================
 
 //======================================================================================
 /* 
@@ -51,7 +31,33 @@
 *   Public functions & routines
 */
 //======================================================================================
+/*
+*   Interface function to create a GPIO
+*/
+void GPIOCreate(uint8_t pin, gpio_int_type_t intrType, gpio_mode_t mode)
+{
+    gpio_config_t gpio_conf = {
+        .intr_type = intrType,
+        .mode = mode,
+        .pin_bit_mask = (1ULL<<pin),
+        .pull_up_en = 1
+    };             
+	ESP_ERROR_CHECK(gpio_config(&gpio_conf));
+    ESP_LOGI(TAG, "New GPIO has been configured");
+}
 
-void LedTask();
+/*
+*   Install ISR to enable the interrupt routine functions
+*/
+void GPIOInstallISR()
+{
+    ESP_ERROR_CHECK(gpio_install_isr_service(ESP_INTR_FLAG_IRAM));
+}
 
-#endif /* _LED_H_ */
+/*
+*   Connect an interrupt routine to the GPIO
+*/
+void GPIOAddISR(uint8_t pin, gpio_isr_t isrRoutine, void *args)
+{    
+    ESP_ERROR_CHECK(gpio_isr_handler_add(pin, isrRoutine, args));
+}

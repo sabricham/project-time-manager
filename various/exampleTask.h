@@ -1,5 +1,5 @@
-#ifndef _LED_H_
-#define _LED_H_
+#ifndef _EXAMPLE_H_
+#define _EXAMPLE_H_
 
 //======================================================================================
 /* 
@@ -11,7 +11,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdint.h>
-#include <math.h>
 
 //======================================================================================
 /* 
@@ -21,24 +20,15 @@
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "freertos/queue.h"
+#include "driver/gptimer.h"
 #include "esp_log.h"
-#include "esp_task_wdt.h"
-
-#include "led_strip.h"
-
-#include "queueHandler.h"
-#include "taskHandler.h"
 
 //======================================================================================
 /* 
 *   Macros
 */
 //======================================================================================
-
-#define LED_STRIP_RMT_RES_HZ                (10 * 1000 * 1000)
-
-#define LED_STRIP_WS2812B_DATA_PIN          5
-#define LED_STRIP_WS2812B_NUM_LEDS          18
 
 //======================================================================================
 /* 
@@ -52,6 +42,6 @@
 */
 //======================================================================================
 
-void LedTask();
+void ExampleTask()
 
-#endif /* _LED_H_ */
+#endif /* _EXAMPLE_H_ */

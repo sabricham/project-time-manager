@@ -1,33 +1,4 @@
-#ifndef _LED_H_
-#define _LED_H_
-
-//======================================================================================
-/* 
-*   Includes 
-*/
-//======================================================================================
-
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <stdint.h>
-#include <math.h>
-
-//======================================================================================
-/* 
-*   Components
-*/
-//======================================================================================
-
-#include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
-#include "esp_log.h"
-#include "esp_task_wdt.h"
-
-#include "led_strip.h"
-
-#include "queueHandler.h"
-#include "taskHandler.h"
+#include "exampleTask.h"
 
 //======================================================================================
 /* 
@@ -35,10 +6,23 @@
 */
 //======================================================================================
 
-#define LED_STRIP_RMT_RES_HZ                (10 * 1000 * 1000)
+#define TAG             "Example Task"
 
-#define LED_STRIP_WS2812B_DATA_PIN          5
-#define LED_STRIP_WS2812B_NUM_LEDS          18
+//======================================================================================
+/* 
+*   Private variables & defines
+*/
+//======================================================================================
+
+QueueHandle_t sampleQueue = NULL;
+queueMessage sampleQueueMessage;
+int exampleTaskMessagesParams[MESSAGE_PARAMS_LENGTH];
+
+//======================================================================================
+/* 
+*   Private functions & routines
+*/
+//======================================================================================
 
 //======================================================================================
 /* 
@@ -52,6 +36,30 @@
 */
 //======================================================================================
 
-void LedTask();
+/*
+*   This is an example of a task
+*/
+void ExampleTask()
+{
+    ESP_LOGI(TAG, "Starting task");
 
-#endif /* _LED_H_ */
+    esp_task_wdt_add(NULL);
+    start_queue(&sampleQueue, &sampleQueueMessage, 10, TAG);
+
+    ESP_LOGI(TAG, "Task started correctly");
+
+    while(1)
+    {
+        // Get messages from other tasks
+        if(xQueueReceive(sampleQueue, &sampleQueueMessage, 0))
+        {
+            ESP_LOGI(TAG, "Received message");
+        }
+        
+        esp_task_wdt_reset();
+        vTaskDelay(1);
+    }
+    
+    ESP_LOGE(TAG, "This section should not be reached");
+    return;
+}

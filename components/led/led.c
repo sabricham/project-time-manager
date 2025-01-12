@@ -1,24 +1,21 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <stdint.h>
-#include <math.h>
-#include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
-#include "esp_log.h"
-#include "esp_task_wdt.h"
-
-/* Components */
 #include "led.h"
-#include "led_strip.h"
 
-#include "queue_handler.h"
-#include "task_handler.h"
+//======================================================================================
+/* 
+*   Macros
+*/
+//======================================================================================
 
-/* Private variables & defines */
-#define TAG "Led"
-QueueHandle_t led_queue = NULL;
-queue_message led_queue_message;
+#define TAG             "Led"
+
+//======================================================================================
+/* 
+*   Private variables & defines
+*/
+//======================================================================================
+
+QueueHandle_t ledQueue = NULL;
+queueMessage ledQueueMessage;
 
 typedef enum{
     ledEffectNone = 0,
@@ -38,9 +35,11 @@ float ledEffectBreathDiffuser = 0;
 uint8_t ledEffectBreathReverse = 0;
 uint8_t ledEffectPercentage = 0;
 
-/* Public variables & defines */
-
-/* Private functions & routines */
+//======================================================================================
+/* 
+*   Private functions & routines
+*/
+//======================================================================================
 /*
 *   Clamp a value between a max and min, if above max returns max, if below min returns min
 */
@@ -261,14 +260,26 @@ void SetLedEffectLoading(led_strip_handle_t ledStrip)
     UpdateLedStrip(ledStrip);
 }
 
-/* Public functions & routines */
+//======================================================================================
+/* 
+*   Public variables & defines
+*/
+//======================================================================================
 
-void led_task()
+//======================================================================================
+/* 
+*   Public functions & routines
+*/
+//======================================================================================
+/*
+*   Entry point of the task
+*/
+void LedTask()
 {
     ESP_LOGI(TAG, "Starting task");
 
     esp_task_wdt_add(NULL);
-    start_queue(&led_queue, &led_queue_message, 10, TAG);
+    CreateQueue(&ledQueue, &ledQueueMessage, 10, TAG);
 
     ledStripWS2812 = LedStripInitRMTBackend(LED_MODEL_WS2812);
 
@@ -277,19 +288,19 @@ void led_task()
     while(1)
     {
         // Get messages from other tasks
-        if(xQueueReceive(led_queue, &led_queue_message, 0))
+        if(xQueueReceive(ledQueue, &ledQueueMessage, 0))
         {
             ESP_LOGI(TAG, "Received message");
-            if(led_queue_message.sender_id == SENDER_ID_MANAGER)
+            if(ledQueueMessage.senderID == SENDER_ID_MANAGER)
             {
-                switch(led_queue_message.message_id)
+                switch(ledQueueMessage.messageID)
                 {
                     case MESSAGE_ID_LED_CLEAR_LED:
                     {
                         ESP_LOGI(TAG, "Clear led strip");
                         ledEffectActive = ledEffectNone;
                         
-                        ledEffectDelay = (uint16_t)led_queue_message.data[0];
+                        ledEffectDelay = (uint16_t)ledQueueMessage.params[0];
                     }
                     break;
                     case MESSAGE_ID_LED_SET_EFFECT_RAINBOW:
@@ -297,7 +308,7 @@ void led_task()
                         ESP_LOGI(TAG, "Set rainbow effect on led strip");
                         ledEffectActive = ledEffectRainbow;
                         
-                        ledEffectDelay = (uint16_t)led_queue_message.data[0];
+                        ledEffectDelay = (uint16_t)ledQueueMessage.params[0];
                     }
                     break;
                     case MESSAGE_ID_LED_SET_EFFECT_BREATH:
@@ -305,11 +316,11 @@ void led_task()
                         ESP_LOGI(TAG, "Set breath effect on led strip");
                         ledEffectActive = ledEffectBreath;
                         
-                        ledEffectDelay = (uint16_t)led_queue_message.data[0];
+                        ledEffectDelay = (uint16_t)ledQueueMessage.params[0];
 
-                        red = (uint8_t)led_queue_message.data[1];
-                        green = (uint8_t)led_queue_message.data[2];
-                        blue = (uint8_t)led_queue_message.data[3];
+                        red = (uint8_t)ledQueueMessage.params[1];
+                        green = (uint8_t)ledQueueMessage.params[2];
+                        blue = (uint8_t)ledQueueMessage.params[3];
                     }
                     break;
                     case MESSAGE_ID_LED_SET_EFFECT_SOLID:
@@ -317,11 +328,11 @@ void led_task()
                         ESP_LOGI(TAG, "Set solid color on led strip");
                         ledEffectActive = ledEffectSolid;
                         
-                        ledEffectDelay = (uint16_t)led_queue_message.data[0];
+                        ledEffectDelay = (uint16_t)ledQueueMessage.params[0];
 
-                        red = (uint8_t)led_queue_message.data[1];
-                        green = (uint8_t)led_queue_message.data[2];
-                        blue = (uint8_t)led_queue_message.data[3];                        
+                        red = (uint8_t)ledQueueMessage.params[1];
+                        green = (uint8_t)ledQueueMessage.params[2];
+                        blue = (uint8_t)ledQueueMessage.params[3];                        
                     }
                     break;                    
                     case MESSAGE_ID_LED_SET_EFFECT_LOADING:
@@ -329,13 +340,13 @@ void led_task()
                         ESP_LOGI(TAG, "Set loading effect on led strip");
                         ledEffectActive = ledEffectLoading;
                         
-                        ledEffectDelay = (uint16_t)led_queue_message.data[0];
+                        ledEffectDelay = (uint16_t)ledQueueMessage.params[0];
                         
-                        red = (uint8_t)led_queue_message.data[1];
-                        green = (uint8_t)led_queue_message.data[2];
-                        blue = (uint8_t)led_queue_message.data[3];
+                        red = (uint8_t)ledQueueMessage.params[1];
+                        green = (uint8_t)ledQueueMessage.params[2];
+                        blue = (uint8_t)ledQueueMessage.params[3];
 
-                        ledEffectPercentage = (uint8_t)led_queue_message.data[4];
+                        ledEffectPercentage = (uint8_t)ledQueueMessage.params[4];
                     }
                     break;
                 }

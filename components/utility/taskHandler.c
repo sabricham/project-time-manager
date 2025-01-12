@@ -1,32 +1,3 @@
-#ifndef _LED_H_
-#define _LED_H_
-
-//======================================================================================
-/* 
-*   Includes 
-*/
-//======================================================================================
-
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <stdint.h>
-#include <math.h>
-
-//======================================================================================
-/* 
-*   Components
-*/
-//======================================================================================
-
-#include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
-#include "esp_log.h"
-#include "esp_task_wdt.h"
-
-#include "led_strip.h"
-
-#include "queueHandler.h"
 #include "taskHandler.h"
 
 //======================================================================================
@@ -35,10 +6,19 @@
 */
 //======================================================================================
 
-#define LED_STRIP_RMT_RES_HZ                (10 * 1000 * 1000)
+#define TAG             "Task Handler"
 
-#define LED_STRIP_WS2812B_DATA_PIN          5
-#define LED_STRIP_WS2812B_NUM_LEDS          18
+//======================================================================================
+/* 
+*   Private variables & defines
+*/
+//======================================================================================
+
+//======================================================================================
+/* 
+*   Private functions & routines
+*/
+//======================================================================================
 
 //======================================================================================
 /* 
@@ -51,7 +31,15 @@
 *   Public functions & routines
 */
 //======================================================================================
-
-void LedTask();
-
-#endif /* _LED_H_ */
+/*
+*   Interface function to start a new task
+*/
+void StartTask(TaskHandle_t (* task)(void *), char * taskName, uint16_t stackSize, uint8_t priority)
+{    
+    if(xTaskCreate((*task), taskName, stackSize, NULL, priority, NULL) != pdPASS)
+    {
+        ESP_LOGE(TAG, "Failed to create task");
+        return;
+    }
+    ESP_LOGI(TAG, "Task '%s' created correctly", taskName);
+}
