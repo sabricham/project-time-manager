@@ -64,7 +64,7 @@ void DisplayTask()
     uint8_t displayInternalState = DISPLAY_PAGE_IDLE;
     
     esp_task_wdt_add(NULL);
-    CreateQueue(&displayQueue, &displayQueueMessage, 10, TAG);
+    CreateQueue(&displayQueue, &displayQueueMessage, 3, TAG);
 
 	ESP_LOGI(TAG, "I2C port is SDA:%d SCL:%d", I2C_PIN_SDA, I2C_PIN_SCL);
     i2c_master_init(&displayHandler, I2C_PIN_SDA, I2C_PIN_SCL, -1);
@@ -80,10 +80,10 @@ void DisplayTask()
     uint16_t displayHorizontalOffset = 0;
     uint16_t displayDigitsNumber = 0;
 
+    vTaskDelay(pdMS_TO_TICKS(DISPLAY_TASK_STARTUP_DELAY));
+
     ESP_LOGW(TAG, "Task started correctly");
     //======================================================================================
-    
-    vTaskDelay(pdMS_TO_TICKS(DISPLAY_TASK_STARTUP_DELAY));
 
     while(1)
     {

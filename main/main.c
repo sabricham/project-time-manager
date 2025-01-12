@@ -20,6 +20,7 @@
 #include "display.h"
 #include "manager.h"
 #include "encoder.h"
+#include "led.h"
 
 #include "queueHandler.h"
 #include "taskHandler.h"
@@ -57,6 +58,7 @@ void app_main()
     StartTask(EncoderTask, "Encoder", configMINIMAL_STACK_SIZE * 2, tskIDLE_PRIORITY + 2);
     StartTask(ManagerTask, "Manager", configMINIMAL_STACK_SIZE * 2, tskIDLE_PRIORITY + 3);
     StartTask(DisplayTask, "Display", configMINIMAL_STACK_SIZE * 4, tskIDLE_PRIORITY + 4);
+    StartTask(LedTask, "Led", configMINIMAL_STACK_SIZE * 2, tskIDLE_PRIORITY + 2);
     ESP_LOGW(TAG, "System tasks started successfully");
     
     ESP_LOGW(TAG, "Starting task");

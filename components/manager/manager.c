@@ -16,6 +16,7 @@
 
 extern QueueHandle_t displayQueue;
 extern QueueHandle_t encoderQueue;
+extern QueueHandle_t ledQueue;
 QueueHandle_t managerQueue = NULL;
 queueMessage managerQueueMessage;
 int managerMessagesParams[MESSAGE_PARAMS_LENGTH];
@@ -44,7 +45,7 @@ int timerTimerCounterPrevious;
 /*
 *   Clear all modified variables
 */
-void ResetVariables()
+void ResetManagerVariables()
 {
     timerTimeSelected = 0;
     timerTimeSelectedPrevious = 0;
@@ -66,12 +67,21 @@ static void IRAM_ATTR TimerTimeCounterCallback(gptimer_handle_t timer, const gpt
 */
 uint8_t ManagerStartup()
 { 
-    // set encoder single mode
+    //set encoder single mode
     SendMessage(encoderQueue, SENDER_ID_MANAGER, DEVICE_ID_ENCODER, MESSAGE_ID_ENCODER_MODE_SINGLE, NULL);
         
     //set screen time 00:00
     managerMessagesParams[0] = 0;
     SendMessage(displayQueue, SENDER_ID_MANAGER, DEVICE_ID_DISPLAY, MESSAGE_ID_DISPLAY_PAGE_DIGITS, managerMessagesParams);
+
+    //set led solid green effect
+    managerMessagesParams[0] = 10;
+    managerMessagesParams[1] = 0;
+    managerMessagesParams[2] = 150;
+    managerMessagesParams[3] = 0;
+    SendMessage(ledQueue, SENDER_ID_MANAGER, DEVICE_ID_LED, MESSAGE_ID_LED_SET_EFFECT_SOLID, managerMessagesParams);
+
+    vTaskDelay(pdMS_TO_TICKS(3000));
 
     return managerStateIdle;
 }
@@ -183,6 +193,13 @@ uint8_t ManagerIdle()
 
                     TimerSet(timerSeconds, 0);
                     TimerStart(timerSeconds);
+                    
+                    //set led breath red effect
+                    managerMessagesParams[0] = 25;
+                    managerMessagesParams[1] = 150;
+                    managerMessagesParams[2] = 0;
+                    managerMessagesParams[3] = 0;
+                    SendMessage(ledQueue, SENDER_ID_MANAGER, DEVICE_ID_LED, MESSAGE_ID_LED_SET_EFFECT_BREATH, managerMessagesParams);
 
                     return managerStateTimer;            
                 }
@@ -210,12 +227,19 @@ uint8_t ManagerTimer()
         ESP_LOGI(TAG, "Time expired!");
 
         //reset all the needed for loop
-        ResetVariables();
+        ResetManagerVariables();
         TimerReset(timerSeconds, 0);
 
         //refresh image to 00:00
         managerMessagesParams[0] = 0;
         SendMessage(displayQueue, SENDER_ID_MANAGER, DEVICE_ID_DISPLAY, MESSAGE_ID_DISPLAY_PAGE_DIGITS, managerMessagesParams);
+        
+        //set led solid green effect
+        managerMessagesParams[0] = 10;
+        managerMessagesParams[1] = 0;
+        managerMessagesParams[2] = 150;
+        managerMessagesParams[3] = 0;
+        SendMessage(ledQueue, SENDER_ID_MANAGER, DEVICE_ID_LED, MESSAGE_ID_LED_SET_EFFECT_SOLID, managerMessagesParams);
 
         return managerStateIdle;
     }
@@ -276,16 +300,16 @@ void ManagerTask()
     ESP_LOGW(TAG, "Starting task");
 
     esp_task_wdt_add(NULL);
-    CreateQueue(&managerQueue, &managerQueueMessage, 10, TAG);
-    ResetVariables();
+    CreateQueue(&managerQueue, &managerQueueMessage, 3, TAG);
+    ResetManagerVariables();
 
     TimerCreate(&timerSeconds, 1, 1*1000*1000, true, GPTIMER_CLK_SRC_DEFAULT, GPTIMER_COUNT_UP, 1000*1000, 0, TimerTimeCounterCallback, NULL);
     managerState = managerStateStartup;
+    
+    vTaskDelay(pdMS_TO_TICKS(MANAGER_TASK_STARTUP_DELAY));
 
     ESP_LOGW(TAG, "Task started correctly");
     //======================================================================================
-    
-    vTaskDelay(pdMS_TO_TICKS(MANAGER_TASK_STARTUP_DELAY));
 
     while(1)
     {
