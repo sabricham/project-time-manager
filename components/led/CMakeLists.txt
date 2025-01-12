@@ -1,4 +1,4 @@
 idf_component_register(
     SRCS "led.c"
     INCLUDE_DIRS "."
-    REQUIRES led_strip utility manager)
+    REQUIRES utility manager led_strip)

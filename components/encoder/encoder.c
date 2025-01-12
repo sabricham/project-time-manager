@@ -47,16 +47,16 @@ void EncoderTask()
     ESP_LOGW(TAG, "Starting task");
 
     esp_task_wdt_add(NULL);
-    CreateQueue(&encoderQueue, &encoderQueueMessage, 10, TAG);
+    CreateQueue(&encoderQueue, &encoderQueueMessage, 3, TAG);
     encoderVariationMode = ENCODER_MODE_SINGLE;
 
     KY040_t ky040Encoder;
     KY040Init(&ky040Encoder, ENCODER_PIN_A, ENCODER_PIN_B, ENCODER_PIN_SWITCH, ENCODER_ANGLE_INCREMENT);
+    
+    vTaskDelay(pdMS_TO_TICKS(ENCODER_TASK_STARTUP_DELAY));
 
     ESP_LOGW(TAG, "Task started correctly");
     //======================================================================================
-    
-    vTaskDelay(pdMS_TO_TICKS(ENCODER_TASK_STARTUP_DELAY));
 
     while(1)
     {

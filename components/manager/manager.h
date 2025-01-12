@@ -26,6 +26,7 @@
 
 #include "display.h"
 #include "encoder.h"
+#include "led.h"
 
 #include "queueHandler.h"
 #include "taskHandler.h"

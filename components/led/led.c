@@ -31,7 +31,7 @@ uint8_t red, green, blue;
 uint16_t ledEffectDelay = 1;
 
 float ledEffectRainbowHueShift = 0;
-float ledEffectBreathDiffuser = 0;
+float ledEffectBreathDiffuser = 1;
 uint8_t ledEffectBreathReverse = 0;
 uint8_t ledEffectPercentage = 0;
 
@@ -40,6 +40,17 @@ uint8_t ledEffectPercentage = 0;
 *   Private functions & routines
 */
 //======================================================================================
+/*
+*   Reset all led variables before selecting another led effect
+*/
+void ResetLedVariables()
+{    
+    ledEffectRainbowHueShift = 0;
+    ledEffectBreathDiffuser = 1;
+    ledEffectBreathReverse = 0;
+    ledEffectPercentage = 0;
+}
+
 /*
 *   Clamp a value between a max and min, if above max returns max, if below min returns min
 */
@@ -276,14 +287,18 @@ void SetLedEffectLoading(led_strip_handle_t ledStrip)
 */
 void LedTask()
 {
-    ESP_LOGI(TAG, "Starting task");
+    //======================================================================================
+    ESP_LOGW(TAG, "Starting task");
 
     esp_task_wdt_add(NULL);
-    CreateQueue(&ledQueue, &ledQueueMessage, 10, TAG);
+    CreateQueue(&ledQueue, &ledQueueMessage, 3, TAG);
 
     ledStripWS2812 = LedStripInitRMTBackend(LED_MODEL_WS2812);
 
-    ESP_LOGI(TAG, "Task started correctly");
+    vTaskDelay(pdMS_TO_TICKS(LED_TASK_STARTUP_DELAY));
+
+    ESP_LOGW(TAG, "Task started correctly");
+    //======================================================================================
 
     while(1)
     {
@@ -301,6 +316,7 @@ void LedTask()
                         ledEffectActive = ledEffectNone;
                         
                         ledEffectDelay = (uint16_t)ledQueueMessage.params[0];
+                        ResetLedVariables();
                     }
                     break;
                     case MESSAGE_ID_LED_SET_EFFECT_RAINBOW:
@@ -309,6 +325,7 @@ void LedTask()
                         ledEffectActive = ledEffectRainbow;
                         
                         ledEffectDelay = (uint16_t)ledQueueMessage.params[0];
+                        ResetLedVariables();
                     }
                     break;
                     case MESSAGE_ID_LED_SET_EFFECT_BREATH:
@@ -321,6 +338,7 @@ void LedTask()
                         red = (uint8_t)ledQueueMessage.params[1];
                         green = (uint8_t)ledQueueMessage.params[2];
                         blue = (uint8_t)ledQueueMessage.params[3];
+                        ResetLedVariables();
                     }
                     break;
                     case MESSAGE_ID_LED_SET_EFFECT_SOLID:
@@ -332,7 +350,8 @@ void LedTask()
 
                         red = (uint8_t)ledQueueMessage.params[1];
                         green = (uint8_t)ledQueueMessage.params[2];
-                        blue = (uint8_t)ledQueueMessage.params[3];                        
+                        blue = (uint8_t)ledQueueMessage.params[3];  
+                        ResetLedVariables();                      
                     }
                     break;                    
                     case MESSAGE_ID_LED_SET_EFFECT_LOADING:
@@ -347,6 +366,7 @@ void LedTask()
                         blue = (uint8_t)ledQueueMessage.params[3];
 
                         ledEffectPercentage = (uint8_t)ledQueueMessage.params[4];
+                        ResetLedVariables();
                     }
                     break;
                 }
