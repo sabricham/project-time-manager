@@ -33,7 +33,7 @@ uint16_t ledEffectDelay = 1;
 float ledEffectRainbowHueShift = 0;
 float ledEffectBreathDiffuser = 1;
 uint8_t ledEffectBreathReverse = 0;
-uint8_t ledEffectPercentage = 0;
+int ledEffectPercentage = 0;
 
 //======================================================================================
 /* 
@@ -264,9 +264,24 @@ void SetLedEffectSolid(led_strip_handle_t ledStrip)
 */
 void SetLedEffectLoading(led_strip_handle_t ledStrip)
 {
+    ESP_LOGI(TAG, "Percentage %d", ledEffectPercentage);
+    int numLedsFull = (ledEffectPercentage * LED_STRIP_WS2812B_NUM_LEDS) / 10000;
+
     for (int i = 0; i < LED_STRIP_WS2812B_NUM_LEDS; i++) 
     {
-        SetLedColor(ledStrip, i, red, green, blue);
+        if(i < numLedsFull)
+        {
+            SetLedColor(ledStrip, LED_STRIP_WS2812B_NUM_LEDS-i-1, red, green, blue);
+        }
+        else if (i == numLedsFull)
+        {
+            int multiplier = ((ledEffectPercentage * LED_STRIP_WS2812B_NUM_LEDS) / 100) % 100;
+            SetLedColor(ledStrip, LED_STRIP_WS2812B_NUM_LEDS-i-1, (red * multiplier)/100, (green * multiplier)/100, (blue * multiplier)/100);
+        }        
+        else
+        {
+            SetLedColor(ledStrip, LED_STRIP_WS2812B_NUM_LEDS-i-1, 0, 0, 0);
+        }
     }
     UpdateLedStrip(ledStrip);
 }
@@ -313,24 +328,25 @@ void LedTask()
                     case MESSAGE_ID_LED_CLEAR_LED:
                     {
                         ESP_LOGI(TAG, "Clear led strip");
+                        ResetLedVariables();
                         ledEffectActive = ledEffectNone;
                         
                         ledEffectDelay = (uint16_t)ledQueueMessage.params[0];
-                        ResetLedVariables();
                     }
                     break;
                     case MESSAGE_ID_LED_SET_EFFECT_RAINBOW:
                     {
                         ESP_LOGI(TAG, "Set rainbow effect on led strip");
+                        ResetLedVariables();
                         ledEffectActive = ledEffectRainbow;
                         
                         ledEffectDelay = (uint16_t)ledQueueMessage.params[0];
-                        ResetLedVariables();
                     }
                     break;
                     case MESSAGE_ID_LED_SET_EFFECT_BREATH:
                     {
                         ESP_LOGI(TAG, "Set breath effect on led strip");
+                        ResetLedVariables();
                         ledEffectActive = ledEffectBreath;
                         
                         ledEffectDelay = (uint16_t)ledQueueMessage.params[0];
@@ -338,25 +354,25 @@ void LedTask()
                         red = (uint8_t)ledQueueMessage.params[1];
                         green = (uint8_t)ledQueueMessage.params[2];
                         blue = (uint8_t)ledQueueMessage.params[3];
-                        ResetLedVariables();
                     }
                     break;
                     case MESSAGE_ID_LED_SET_EFFECT_SOLID:
                     {
                         ESP_LOGI(TAG, "Set solid color on led strip");
+                        ResetLedVariables();
                         ledEffectActive = ledEffectSolid;
                         
                         ledEffectDelay = (uint16_t)ledQueueMessage.params[0];
 
                         red = (uint8_t)ledQueueMessage.params[1];
                         green = (uint8_t)ledQueueMessage.params[2];
-                        blue = (uint8_t)ledQueueMessage.params[3];  
-                        ResetLedVariables();                      
+                        blue = (uint8_t)ledQueueMessage.params[3];               
                     }
                     break;                    
                     case MESSAGE_ID_LED_SET_EFFECT_LOADING:
                     {
-                        ESP_LOGI(TAG, "Set loading effect on led strip");
+                        ESP_LOGI(TAG, "Set loading effect on led strip"); 
+                        ResetLedVariables();        
                         ledEffectActive = ledEffectLoading;
                         
                         ledEffectDelay = (uint16_t)ledQueueMessage.params[0];
@@ -365,8 +381,7 @@ void LedTask()
                         green = (uint8_t)ledQueueMessage.params[2];
                         blue = (uint8_t)ledQueueMessage.params[3];
 
-                        ledEffectPercentage = (uint8_t)ledQueueMessage.params[4];
-                        ResetLedVariables();
+                        ledEffectPercentage = ledQueueMessage.params[4];
                     }
                     break;
                 }
