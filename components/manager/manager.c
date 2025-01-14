@@ -33,7 +33,9 @@ uint8_t managerState = managerStateStartup;
 
 uint16_t timerTimeSelected;
 uint16_t timerTimeSelectedPrevious;
-gptimer_handle_t timerSeconds = NULL;
+
+//counting tens of milli seconds
+gptimer_handle_t timerTensMilliSeconds = NULL;
 int timerTimeCounter;
 int timerTimerCounterPrevious;
 
@@ -53,7 +55,7 @@ void ResetManagerVariables()
 }
 
 /*
-*   Timer callback for every second passed decreases the counter
+*   Timer callback for every milli second passed decreases the counter
 */
 static void IRAM_ATTR TimerTimeCounterCallback(gptimer_handle_t timer, const gptimer_alarm_event_data_t *edata, void *arg) 
 { 
@@ -76,9 +78,9 @@ uint8_t ManagerStartup()
 
     //set led solid green effect
     managerMessagesParams[0] = 10;
-    managerMessagesParams[1] = 0;
-    managerMessagesParams[2] = 150;
-    managerMessagesParams[3] = 0;
+    managerMessagesParams[1] = 255;
+    managerMessagesParams[2] = 255;
+    managerMessagesParams[3] = 255;
     SendMessage(ledQueue, SENDER_ID_MANAGER, DEVICE_ID_LED, MESSAGE_ID_LED_SET_EFFECT_SOLID, managerMessagesParams);
 
     vTaskDelay(pdMS_TO_TICKS(3000));
@@ -188,18 +190,19 @@ uint8_t ManagerIdle()
                 {   
                     // Start the timer and change state
                     ESP_LOGI(TAG, "Switching fsm state to Timer");
-                    timerTimeCounter = timerTimeSelected; 
+                    timerTimeCounter = timerTimeSelected * 100;     //tens of milliseconds * 100 makes a second
                     timerTimerCounterPrevious = 0;
 
-                    TimerSet(timerSeconds, 0);
-                    TimerStart(timerSeconds);
+                    TimerSet(timerTensMilliSeconds, 0);
+                    TimerStart(timerTensMilliSeconds);
                     
-                    //set led breath red effect
+                    //set led loading effect
                     managerMessagesParams[0] = 25;
-                    managerMessagesParams[1] = 150;
-                    managerMessagesParams[2] = 0;
-                    managerMessagesParams[3] = 0;
-                    SendMessage(ledQueue, SENDER_ID_MANAGER, DEVICE_ID_LED, MESSAGE_ID_LED_SET_EFFECT_BREATH, managerMessagesParams);
+                    managerMessagesParams[1] = 25;
+                    managerMessagesParams[2] = 25;
+                    managerMessagesParams[3] = 255;
+                    managerMessagesParams[4] = 100;
+                    SendMessage(ledQueue, SENDER_ID_MANAGER, DEVICE_ID_LED, MESSAGE_ID_LED_SET_EFFECT_LOADING, managerMessagesParams);
 
                     return managerStateTimer;            
                 }
@@ -228,7 +231,7 @@ uint8_t ManagerTimer()
 
         //reset all the needed for loop
         ResetManagerVariables();
-        TimerReset(timerSeconds, 0);
+        TimerReset(timerTensMilliSeconds, 0);
 
         //refresh image to 00:00
         managerMessagesParams[0] = 0;
@@ -236,22 +239,29 @@ uint8_t ManagerTimer()
         
         //set led solid green effect
         managerMessagesParams[0] = 10;
-        managerMessagesParams[1] = 0;
-        managerMessagesParams[2] = 150;
-        managerMessagesParams[3] = 0;
+        managerMessagesParams[1] = 255;
+        managerMessagesParams[2] = 255;
+        managerMessagesParams[3] = 255;
         SendMessage(ledQueue, SENDER_ID_MANAGER, DEVICE_ID_LED, MESSAGE_ID_LED_SET_EFFECT_SOLID, managerMessagesParams);
 
         return managerStateIdle;
     }
-    else if(timerTimeCounter != timerTimerCounterPrevious)
+    else if(timerTimeCounter != timerTimerCounterPrevious)   // /100 -> check every 1 s, /10 -> check every 100 ms, nothing -> check every 10 ms
     {
         timerTimerCounterPrevious = timerTimeCounter;
         ESP_LOGI(TAG, "timerTimerCounterPrevious: %d", timerTimerCounterPrevious);
 
         //refresh image to the time left
-        managerMessagesParams[0] = (timerTimerCounterPrevious / 60) * 100 + (timerTimerCounterPrevious % 60);
+        managerMessagesParams[0] = ((timerTimerCounterPrevious / 100) / 60) * 100 + ((timerTimerCounterPrevious / 100) % 60);
         SendMessage(displayQueue, SENDER_ID_MANAGER, DEVICE_ID_DISPLAY, MESSAGE_ID_DISPLAY_PAGE_DIGITS, managerMessagesParams);
         
+        //refresh led loading effect
+        managerMessagesParams[0] = 10;
+        managerMessagesParams[1] = 25;
+        managerMessagesParams[2] = 25;
+        managerMessagesParams[3] = 255;
+        managerMessagesParams[4] = (timerTimerCounterPrevious * 100) / timerTimeSelected;
+        SendMessage(ledQueue, SENDER_ID_MANAGER, DEVICE_ID_LED, MESSAGE_ID_LED_SET_EFFECT_LOADING, managerMessagesParams);        
     }
     return managerStateTimer;
 }
@@ -303,7 +313,7 @@ void ManagerTask()
     CreateQueue(&managerQueue, &managerQueueMessage, 3, TAG);
     ResetManagerVariables();
 
-    TimerCreate(&timerSeconds, 1, 1*1000*1000, true, GPTIMER_CLK_SRC_DEFAULT, GPTIMER_COUNT_UP, 1000*1000, 0, TimerTimeCounterCallback, NULL);
+    TimerCreate(&timerTensMilliSeconds, 1, 1*1000*1000, true, GPTIMER_CLK_SRC_DEFAULT, GPTIMER_COUNT_UP, 1000*10, 0, TimerTimeCounterCallback, NULL);
     managerState = managerStateStartup;
     
     vTaskDelay(pdMS_TO_TICKS(MANAGER_TASK_STARTUP_DELAY));
