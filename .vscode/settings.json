@@ -1,6 +1,6 @@
 {
     "idf.adapterTargetName": "esp32c3",
-    "idf.portWin": "COM5",
+    "idf.portWin": "COM13",
     "idf.flashType": "UART",
     "idf.openOcdConfigs": [
         "board/esp32c3-bridge.cfg"
@@ -19,7 +19,11 @@
         "chrono": "c",
         "random": "c",
         "limits": "c",
-        "semaphore": "c"
+        "semaphore": "c",
+        "hap.h": "c",
+        "app_wifi.h": "c",
+        "led.h": "c",
+        "queuehandler.h": "c"
     },
     "idf.espIdfPathWin": "c:\\Espressif\\frameworks\\esp-idf-v5.2.1",
     "idf.toolsPathWin": "c:\\Espressif\\tools"
